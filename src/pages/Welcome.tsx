@@ -19,7 +19,7 @@ export default function Welcome() {
         className="fixed top-0 left-0 right-0 z-50 h-16 bg-background/60 backdrop-blur-xl saturate-200 border-b border-outline-variant/50 px-margin-mobile md:px-margin-desktop flex justify-between items-center w-full shadow-[0_1px_10px_rgba(0,0,0,0.2)]"
       >
         <Link to="/" className="flex items-center gap-2">
-          <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuCZtp3WhxVzm5QPMZeaPXnBbw5s57BgM5w3JR8trCozkSa12_pOnJCyET8PlnMEoaluGRMP4Hy0MRL3wTujfl7OqWMzfx9MGcQuGtlD2dXo432WC6MEAXK-la1L88VZomwRvR1qDfozQM1WIRa4Qb5gTC7ChuZftgokgdb49tKitX5A0ETGaIO-IrteX2OZ87P5ixYsm9w4I8RhbRXOgTM2HUnBx3kyedu5Gok-Toc7kj0RM0nveqT1yX3IonwNnpMmiQ" alt="TRYBEE Logo" className="h-8 w-auto object-contain" />
+          <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuCZtp3WhxVzm5QPMZeaPXnBbw5s57BgM5w3JR8trCozkSa12_pOnJCyET8PlnMEoaluGRMP4Hy0MRL3wTujfl7OqWMzfx9MGcQuGtlD2dXo432WC6MEAXK-la1L88VZomwRvR1qDfozQM1WIRa4Qb5gTC7ChuZftgokgdb49tKitX5A0ETGaIO-IrteX2OZ87P5ixYsm9w4I8RhbRXOgTM2HUnBx3kyedu5Gok-Toc7kj0RM0nveqT1yX3IonwNnpMmiQ" alt="TRYBE Logo" className="h-8 w-auto object-contain" />
         </Link>
         <nav className="hidden md:flex items-center gap-lg">
           <button 
@@ -87,7 +87,7 @@ export default function Welcome() {
                   transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
                   className="h-12 px-8 rounded-full border border-outline-variant bg-transparent text-on-surface font-label-md text-label-md flex items-center justify-center hover:bg-surface-container-high transition-colors"
                 >
-                  Explore TRYBEE
+                  Explore TRYBE
                 </motion.div>
               </button>
             </div>
@@ -129,7 +129,7 @@ export default function Welcome() {
                 <div className="p-6 h-[calc(100%-40px)] flex flex-col gap-4 relative">
                   <div className="h-12 w-full bg-surface-container-high rounded-lg flex items-center px-4 justify-between">
                     <div className="w-1/3 h-4 bg-surface-variant rounded"></div>
-                    <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuB-1gp_XIaI8xasa4_VHGCqLqxZaKmZklpMF5eI28MEK9o6CmdTdtU8wiIT9QBP6vyE2pV__sGtPxnh80L1m3LhkQ9lzNg_2-PcsTuu29bwO4enhQkCiN5kpkpmvqarYNPkO5cTkPgMu6LY7PetHEc31WiePiG1nFVMgO4PCxyf-lXCIjOWaf5pQdwKE5CdJGpLXRLcvGvvH9DAyfr0Nwuv_UMk-AOE38AYitxWG6l_GFdkKPqJe9CudAMW5NJYMoQo0Q" alt="TRYBEE Logo" className="w-8 h-8 rounded-full object-contain bg-surface-variant" />
+                    <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuB-1gp_XIaI8xasa4_VHGCqLqxZaKmZklpMF5eI28MEK9o6CmdTdtU8wiIT9QBP6vyE2pV__sGtPxnh80L1m3LhkQ9lzNg_2-PcsTuu29bwO4enhQkCiN5kpkpmvqarYNPkO5cTkPgMu6LY7PetHEc31WiePiG1nFVMgO4PCxyf-lXCIjOWaf5pQdwKE5CdJGpLXRLcvGvvH9DAyfr0Nwuv_UMk-AOE38AYitxWG6l_GFdkKPqJe9CudAMW5NJYMoQo0Q" alt="TRYBE Logo" className="w-8 h-8 rounded-full object-contain bg-surface-variant" />
                   </div>
                   <div className="grid grid-cols-3 gap-4 h-full pb-4">
                     <div className="col-span-1 border-r border-outline-variant pr-4 flex flex-col gap-3">
@@ -223,7 +223,7 @@ export default function Welcome() {
             viewport={{ once: true }}
             className="text-primary font-label-md uppercase tracking-wider block mb-2"
           >
-            Welcome to TRYBEE
+            Welcome to TRYBE
           </motion.span>
           <motion.h2 
             initial={{ opacity: 0, y: 20 }}
@@ -241,7 +241,7 @@ export default function Welcome() {
             transition={{ delay: 0.2 }}
             className="text-body-lg text-on-surface-variant leading-relaxed"
           >
-            TRYBEE brings together everything happening at your university. Say goodbye to scattered group chats, missed announcements, and disjointed events.
+            TRYBE brings together everything happening at your university. Say goodbye to scattered group chats, missed announcements, and disjointed events.
           </motion.p>
         </div>
 
@@ -312,10 +312,8 @@ export default function Welcome() {
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
           >
-            <Link to="/signup">
-              <button className="px-md py-sm bg-surface-container-high border border-outline-variant rounded-full text-on-surface font-label-md hover:bg-[#C85C68] hover:text-background transition-all duration-300 flex items-center gap-xs">
-                Join TRYBEE to Join <span className="material-symbols-outlined text-sm">arrow_forward</span>
-              </button>
+            <Link to="/signup" className="px-md py-sm bg-surface-container-high border border-outline-variant rounded-full text-on-surface font-label-md hover:bg-[#C85C68] hover:text-background transition-all duration-300 inline-flex items-center gap-xs">
+              Join TRYBE to Join <span className="material-symbols-outlined text-sm" aria-hidden="true">arrow_forward</span>
             </Link>
           </motion.div>
         </div>
@@ -414,13 +412,13 @@ export default function Welcome() {
       <footer className="bg-surface-container-lowest border-t border-outline-variant py-lg px-margin-mobile md:px-margin-desktop w-full relative z-10">
         <div className="max-w-[1440px] mx-auto flex flex-col md:flex-row justify-between items-center gap-md">
           <div className="flex items-center gap-2">
-            <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuCZtp3WhxVzm5QPMZeaPXnBbw5s57BgM5w3JR8trCozkSa12_pOnJCyET8PlnMEoaluGRMP4Hy0MRL3wTujfl7OqWMzfx9MGcQuGtlD2dXo432WC6MEAXK-la1L88VZomwRvR1qDfozQM1WIRa4Qb5gTC7ChuZftgokgdb49tKitX5A0ETGaIO-IrteX2OZ87P5ixYsm9w4I8RhbRXOgTM2HUnBx3kyedu5Gok-Toc7kj0RM0nveqT1yX3IonwNnpMmiQ" alt="TRYBEE Logo" className="h-6 w-auto object-contain opacity-70" />
-            <span className="text-body-sm text-on-surface-variant">© 2026 TRYBEE. All rights reserved.</span>
+            <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuCZtp3WhxVzm5QPMZeaPXnBbw5s57BgM5w3JR8trCozkSa12_pOnJCyET8PlnMEoaluGRMP4Hy0MRL3wTujfl7OqWMzfx9MGcQuGtlD2dXo432WC6MEAXK-la1L88VZomwRvR1qDfozQM1WIRa4Qb5gTC7ChuZftgokgdb49tKitX5A0ETGaIO-IrteX2OZ87P5ixYsm9w4I8RhbRXOgTM2HUnBx3kyedu5Gok-Toc7kj0RM0nveqT1yX3IonwNnpMmiQ" alt="TRYBE Logo" className="h-6 w-auto object-contain opacity-70" />
+            <span className="text-body-sm text-on-surface-variant">© 2026 TRYBE. All rights reserved.</span>
           </div>
           <div className="flex gap-lg">
-            <a href="#" className="text-body-sm text-on-surface-variant hover:text-primary transition-colors">Privacy Policy</a>
-            <a href="#" className="text-body-sm text-on-surface-variant hover:text-primary transition-colors">Terms of Service</a>
-            <a href="#" className="text-body-sm text-on-surface-variant hover:text-primary transition-colors">Support</a>
+            <Link to="/privacy" className="text-body-sm text-on-surface-variant hover:text-primary transition-colors">Privacy Policy</Link>
+            <Link to="/terms" className="text-body-sm text-on-surface-variant hover:text-primary transition-colors">Terms of Service</Link>
+            <Link to="/contact" className="text-body-sm text-on-surface-variant hover:text-primary transition-colors">Support</Link>
           </div>
         </div>
       </footer>

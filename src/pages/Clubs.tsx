@@ -10,12 +10,10 @@ function normalize(s: string) {
 }
 
 export default function Clubs() {
-  const { joinedClubs, joinClub, leaveClub, getClubMemberCount } = useApp();
+  const { joinedClubs, joinClub, leaveClub, getClubMemberCount, showToast } = useApp();
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('All Clubs');
 
-  // Primary college clubs (GLA) only — the "Discover Clubs" page shows GLA clubs
-  // Users see all colleges' clubs in Discover
   const glaClubs = CLUBS.filter(c => c.collegeId === 'gla-university');
   const myClubs = CLUBS.filter(c => joinedClubs.has(c.id));
 
@@ -68,7 +66,7 @@ export default function Clubs() {
                   </div>
                   <Link
                     to={`/clubs/${club.id}`}
-                    className="w-full mt-4 py-3 rounded-lg bg-primary-container text-on-primary-container font-label-md hover:bg-secondary-container transition-all text-center block"
+                    className="w-full mt-4 py-3 rounded-lg bg-primary-container text-on-primary-container font-label-md hover:bg-secondary-container transition-all text-center block cursor-pointer"
                   >
                     View Dashboard
                   </Link>
@@ -100,7 +98,7 @@ export default function Clubs() {
             {search && (
               <button
                 onClick={() => setSearch('')}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
@@ -114,7 +112,7 @@ export default function Clubs() {
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`px-lg py-2 rounded-full border font-label-md whitespace-nowrap shrink-0 transition-colors ${
+              className={`px-lg py-2 rounded-full border font-label-md whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
                 activeCategory === cat
                   ? 'border-primary bg-primary-container text-on-primary-container shadow-[0_0_15px_rgba(125,64,71,0.3)]'
                   : 'border-outline-variant bg-surface text-on-surface-variant hover:border-primary hover:text-primary'
@@ -131,7 +129,7 @@ export default function Clubs() {
             <p className="font-body-md">No clubs found{search ? ` for "${search}"` : ''}.</p>
             <button
               onClick={() => { setSearch(''); setActiveCategory('All Clubs'); }}
-              className="mt-4 text-primary font-label-md hover:underline"
+              className="mt-4 text-primary font-label-md hover:underline cursor-pointer"
             >
               Clear filters
             </button>
@@ -190,7 +188,7 @@ export default function Clubs() {
                     </Link>
                     <button
                       onClick={() => (joined ? leaveClub(club.id) : joinClub(club.id))}
-                      className={`flex-1 py-2 rounded-lg font-label-md transition-all ${
+                      className={`flex-1 py-2 rounded-lg font-label-md transition-all cursor-pointer ${
                         joined
                           ? 'bg-surface-container-high text-on-surface border border-outline-variant hover:bg-error-container hover:text-on-error-container'
                           : 'bg-surface-container-high text-on-surface border border-outline-variant hover:bg-primary-container hover:text-on-primary-container hover:border-primary-container'
@@ -206,8 +204,11 @@ export default function Clubs() {
         )}
 
         <div className="mt-xl flex justify-center">
-          <button className="px-xl py-3 rounded-full border border-outline-variant text-on-surface hover:border-primary hover:text-primary transition-colors font-label-md">
-            Load More Communities
+          <button 
+            onClick={() => showToast('All current campus clubs loaded!', 'info')}
+            className="px-xl py-3 rounded-full border border-outline-variant text-on-surface hover:border-primary hover:text-primary transition-colors font-label-md cursor-pointer"
+          >
+            All Communities Loaded
           </button>
         </div>
       </div>

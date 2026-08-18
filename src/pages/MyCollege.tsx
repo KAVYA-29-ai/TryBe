@@ -7,17 +7,43 @@ import { ClubsTab } from '../components/college/ClubsTab';
 import { EventsTab } from '../components/college/EventsTab';
 import { AboutTab } from '../components/college/AboutTab';
 import { DiscussionsTab } from '../components/college/DiscussionsTab';
-import { COLLEGES } from '../data/colleges';
-import { PRIMARY_COLLEGE_ID } from '../data/colleges';
+import { COLLEGES, PRIMARY_COLLEGE_ID } from '../data/colleges';
+import { PEOPLE } from '../data/people';
+import { useApp } from '../context/AppContext';
+import type { ConnectionStatus } from '../data/types';
+import { Modal } from '../components/Modal';
 
 const OTHER_COLLEGES = COLLEGES.filter(c => c.id !== PRIMARY_COLLEGE_ID);
 
 export default function MyCollege() {
   const navigate = useNavigate();
+  const { connections, setConnectionStatus, showToast } = useApp();
+
   const [view, setView] = useState<'overview' | 'dashboard'>('overview');
   const [activeTab, setActiveTab] = useState<'Feed' | 'Clubs' | 'Events' | 'About' | 'Discussions'>('Feed');
 
+  // Modals state
+  const [showDirectory, setShowDirectory] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
+  const [directorySearch, setDirectorySearch] = useState('');
+  const [copiedLink, setCopiedLink] = useState(false);
+
   const tabs = ['Feed', 'Clubs', 'Events', 'About', 'Discussions'] as const;
+
+  const handleCopyInvite = () => {
+    const inviteUrl = `${window.location.origin}/college/gla-university?invite=gla2026`;
+    navigator.clipboard?.writeText(inviteUrl);
+    setCopiedLink(true);
+    showToast('GLA University invite link copied to clipboard!');
+    setTimeout(() => setCopiedLink(false), 2500);
+  };
+
+  const filteredDirectoryPeople = PEOPLE.filter(p =>
+    p.collegeId === PRIMARY_COLLEGE_ID &&
+    (p.name.toLowerCase().includes(directorySearch.toLowerCase()) ||
+      p.role.toLowerCase().includes(directorySearch.toLowerCase()) ||
+      p.skills.some(s => s.toLowerCase().includes(directorySearch.toLowerCase())))
+  );
 
   if (view === 'overview') {
     return (
@@ -66,7 +92,7 @@ export default function MyCollege() {
                   </div>
                   <button
                     onClick={() => setView('dashboard')}
-                    className="w-full md:w-auto bg-primary text-on-primary font-label-md text-label-md px-lg py-sm rounded-lg hover:bg-primary-fixed-dim transition-all duration-300 active:scale-95 flex items-center justify-center gap-xs shadow-[0_0_15px_rgba(200,92,104,0.4)]"
+                    className="w-full md:w-auto bg-primary text-on-primary font-label-md text-label-md px-lg py-sm rounded-lg hover:bg-primary-fixed-dim transition-all duration-300 active:scale-95 flex items-center justify-center gap-xs shadow-[0_0_15px_rgba(200,92,104,0.4)] cursor-pointer"
                   >
                     View Dashboard <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                   </button>
@@ -85,8 +111,8 @@ export default function MyCollege() {
                 </p>
               </div>
               <button
-                onClick={() => navigate('/discover?tab=Colleges')}
-                className="hidden md:flex text-primary font-label-md text-label-md items-center gap-xs hover:text-primary-fixed-dim transition-colors"
+                onClick={() => navigate('/discover')}
+                className="hidden md:flex text-primary font-label-md text-label-md items-center gap-xs hover:text-primary-fixed-dim transition-colors cursor-pointer"
               >
                 View All <span className="material-symbols-outlined text-[18px]">chevron_right</span>
               </button>
@@ -115,7 +141,7 @@ export default function MyCollege() {
                     </p>
                     <button
                       onClick={() => navigate(`/college/${college.id}`)}
-                      className="w-full bg-transparent border border-outline-variant text-on-surface font-label-md text-label-md py-sm rounded-lg hover:bg-surface-container-high transition-colors active:scale-95"
+                      className="w-full bg-transparent border border-outline-variant text-on-surface font-label-md text-label-md py-sm rounded-lg hover:bg-surface-container-high transition-colors active:scale-95 cursor-pointer"
                     >
                       Explore
                     </button>
@@ -155,14 +181,23 @@ export default function MyCollege() {
                   Primary
                 </span>
               </div>
-              <p className="font-body-md text-body-md text-on-surface-variant">Mathura, Uttar Pradesh • 12K+ Members</p>
+              <p className="font-body-md text-body-md text-on-surface-variant">Mathura, Uttar Pradesh • 15K+ Students</p>
             </div>
           </div>
+
           <div className="flex items-center gap-sm">
-            <button className="px-md py-sm bg-surface-variant text-on-surface rounded-lg font-label-md text-label-md border border-outline-variant hover:bg-surface-container-high transition-colors">
+            <button
+              onClick={() => setShowDirectory(true)}
+              className="px-md py-sm bg-surface-variant text-on-surface rounded-lg font-label-md text-label-md border border-outline-variant hover:bg-surface-container-high transition-colors flex items-center gap-xs cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">badge</span>
               Directory
             </button>
-            <button className="px-md py-sm bg-primary text-on-primary rounded-lg font-label-md text-label-md hover:bg-primary-fixed transition-colors">
+            <button
+              onClick={() => setShowInvite(true)}
+              className="px-md py-sm bg-primary text-on-primary rounded-lg font-label-md text-label-md hover:bg-primary-fixed transition-colors flex items-center gap-xs cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">person_add</span>
               Invite
             </button>
           </div>
@@ -174,11 +209,10 @@ export default function MyCollege() {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`pb-sm font-label-md text-label-md relative transition-colors whitespace-nowrap ${
-                  activeTab === tab
+                className={`pb-sm font-label-md text-label-md relative transition-colors whitespace-nowrap cursor-pointer ${activeTab === tab
                     ? 'text-primary border-b-2 border-primary'
                     : 'text-on-surface-variant hover:text-on-surface border-b-2 border-transparent'
-                }`}
+                  }`}
               >
                 {tab}
               </button>
@@ -209,6 +243,336 @@ export default function MyCollege() {
           {activeTab !== 'Discussions' && <RightSidebar />}
         </div>
       </div>
+
+      {/* Directory Modal */}
+      <Modal
+        isOpen={showDirectory}
+        onClose={() => {
+          setShowDirectory(false);
+          setDirectorySearch('');
+        }}
+        size="xl"
+        ariaLabel="GLA University Directory"
+      >
+        <div className="w-full -m-lg">
+          {/* Directory Header */}
+          <div className="px-lg pt-lg pb-md border-b border-outline-variant/40">
+            <div className="flex items-start justify-between gap-md">
+              <div>
+                <h2 className="font-headline-lg text-on-surface">
+                  Directory
+                </h2>
+                <p className="font-body-sm text-on-surface-variant mt-xs">
+                  GLA University
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  setShowDirectory(false);
+                  setDirectorySearch('');
+                }}
+                className="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors cursor-pointer"
+                aria-label="Close directory"
+              >
+                <span className="material-symbols-outlined">
+                  close
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {/* Search */}
+          <div className="px-lg py-md">
+            <div className="relative max-w-[560px] mx-auto">
+              <span className="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none">
+                search
+              </span>
+
+              <input
+                type="text"
+                value={directorySearch}
+                onChange={(e) => setDirectorySearch(e.target.value)}
+                placeholder="Search departments, people, or facilities..."
+                className="w-full h-11 bg-surface-container-low border border-outline-variant rounded-full pl-12 pr-md text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all"
+              />
+            </div>
+          </div>
+
+          {/* Directory Content */}
+          <div className="px-lg pb-lg">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-md">
+
+              {/* Academic Departments */}
+              <div className="bg-surface-container-low/60 border border-outline-variant rounded-xl p-lg">
+                <div className="flex items-center gap-sm pb-md mb-md border-b border-outline-variant/40">
+                  <div className="w-9 h-9 rounded-lg bg-primary-container/20 text-primary flex items-center justify-center">
+                    <span className="material-symbols-outlined text-[20px]">
+                      school
+                    </span>
+                  </div>
+
+                  <div>
+                    <h3 className="font-headline-sm text-on-surface">
+                      Academic Departments
+                    </h3>
+                    <p className="font-body-sm text-on-surface-variant">
+                      Explore academic areas at GLA
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-xs">
+                  {[
+                    'Computer Science & Engineering',
+                    'AI & Data Science',
+                    'Mechanical Engineering',
+                    'Electrical Engineering',
+                    'Civil Engineering',
+                    'Business Administration',
+                    'Applied Sciences',
+                    'Law & Humanities',
+                  ]
+                    .filter((department) =>
+                      department
+                        .toLowerCase()
+                        .includes(directorySearch.toLowerCase())
+                    )
+                    .map((department) => (
+                      <button
+                        key={department}
+                        className="text-left px-md py-sm rounded-lg text-body-sm text-on-surface hover:bg-surface-container-high hover:text-primary transition-colors cursor-pointer"
+                      >
+                        {department}
+                      </button>
+                    ))}
+
+                  {[
+                    'Computer Science & Engineering',
+                    'AI & Data Science',
+                    'Mechanical Engineering',
+                    'Electrical Engineering',
+                    'Civil Engineering',
+                    'Business Administration',
+                    'Applied Sciences',
+                    'Law & Humanities',
+                  ].filter((department) =>
+                    department
+                      .toLowerCase()
+                      .includes(directorySearch.toLowerCase())
+                  ).length === 0 && (
+                      <p className="col-span-full py-md text-center text-body-sm text-on-surface-variant">
+                        No departments found.
+                      </p>
+                    )}
+                </div>
+              </div>
+
+              {/* Key Contacts */}
+              <div className="bg-surface-container-low/60 border border-outline-variant rounded-xl p-lg">
+                <div className="flex items-center gap-sm pb-md mb-md border-b border-outline-variant/40">
+                  <div className="w-9 h-9 rounded-lg bg-secondary-container/30 text-secondary flex items-center justify-center">
+                    <span className="material-symbols-outlined text-[20px]">
+                      contacts
+                    </span>
+                  </div>
+
+                  <div>
+                    <h3 className="font-headline-sm text-on-surface">
+                      Key Contacts
+                    </h3>
+                    <p className="font-body-sm text-on-surface-variant">
+                      Campus support
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-sm">
+                  {[
+                    {
+                      title: 'Registrar Office',
+                      subtitle: 'Academic administration',
+                      icon: 'person',
+                    },
+                    {
+                      title: 'Student Welfare',
+                      subtitle: 'Student support',
+                      icon: 'groups',
+                    },
+                    {
+                      title: 'Examination Cell',
+                      subtitle: 'Exams & results',
+                      icon: 'assignment',
+                    },
+                    {
+                      title: 'Campus Security',
+                      subtitle: 'Emergency support',
+                      icon: 'shield',
+                    },
+                  ]
+                    .filter((contact) =>
+                      `${contact.title} ${contact.subtitle}`
+                        .toLowerCase()
+                        .includes(directorySearch.toLowerCase())
+                    )
+                    .map((contact) => (
+                      <button
+                        key={contact.title}
+                        className="flex items-center gap-sm p-sm rounded-lg text-left hover:bg-surface-container-high transition-colors cursor-pointer"
+                      >
+                        <div className="w-9 h-9 rounded-full bg-surface-container-high border border-outline-variant flex items-center justify-center shrink-0">
+                          <span className="material-symbols-outlined text-[18px] text-primary">
+                            {contact.icon}
+                          </span>
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="font-label-md text-on-surface">
+                            {contact.title}
+                          </p>
+                          <p className="font-body-sm text-on-surface-variant truncate">
+                            {contact.subtitle}
+                          </p>
+                        </div>
+                      </button>
+                    ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Campus Facilities */}
+            <div className="mt-md bg-surface-container-low/60 border border-outline-variant rounded-xl p-lg">
+              <div className="flex items-center justify-between gap-md pb-md mb-md border-b border-outline-variant/40">
+                <div className="flex items-center gap-sm">
+                  <div className="w-9 h-9 rounded-lg bg-primary-container/20 text-primary flex items-center justify-center">
+                    <span className="material-symbols-outlined text-[20px]">
+                      apartment
+                    </span>
+                  </div>
+
+                  <div>
+                    <h3 className="font-headline-sm text-on-surface">
+                      Campus Facilities
+                    </h3>
+                    <p className="font-body-sm text-on-surface-variant">
+                      Places and facilities around campus
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() =>
+                    window.open(
+                      'https://www.google.com/maps/search/GLA+University+Mathura',
+                      '_blank',
+                      'noopener,noreferrer'
+                    )
+                  }
+                  className="hidden sm:flex items-center gap-xs text-primary font-label-sm hover:text-primary-fixed-dim transition-colors cursor-pointer"
+                >
+                  View Map
+                  <span className="material-symbols-outlined text-[17px]">
+                    open_in_new
+                  </span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-sm">
+                {[
+                  {
+                    name: 'Central Library',
+                    icon: 'local_library',
+                    detail: 'Books, journals & study spaces',
+                    status: 'Open',
+                  },
+                  {
+                    name: 'Advanced Tech Labs',
+                    icon: 'science',
+                    detail: 'Labs & technical facilities',
+                    status: 'Open',
+                  },
+                  {
+                    name: 'Sports Complex',
+                    icon: 'sports_soccer',
+                    detail: 'Indoor & outdoor sports',
+                    status: 'Available',
+                  },
+                  {
+                    name: 'Innovation Hub',
+                    icon: 'lightbulb',
+                    detail: 'Projects, startups & innovation',
+                    status: 'Open',
+                  },
+                ]
+                  .filter((facility) =>
+                    `${facility.name} ${facility.detail}`
+                      .toLowerCase()
+                      .includes(directorySearch.toLowerCase())
+                  )
+                  .map((facility) => (
+                    <div
+                      key={facility.name}
+                      className="bg-surface border border-outline-variant rounded-lg p-md hover:border-primary-container transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-sm">
+                        <div className="w-9 h-9 rounded-lg bg-surface-container-high border border-outline-variant flex items-center justify-center">
+                          <span className="material-symbols-outlined text-primary text-[19px]">
+                            {facility.icon}
+                          </span>
+                        </div>
+
+                        <span className="px-xs py-[3px] rounded bg-secondary-container/30 text-secondary font-label-sm text-[10px]">
+                          {facility.status}
+                        </span>
+                      </div>
+
+                      <h4 className="font-label-md text-on-surface mt-md">
+                        {facility.name}
+                      </h4>
+
+                      <p className="font-body-sm text-on-surface-variant mt-xs leading-relaxed">
+                        {facility.detail}
+                      </p>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Invite Modal */}
+      <Modal
+        isOpen={showInvite}
+        onClose={() => setShowInvite(false)}
+        title="Invite Students"
+        subtitle="Share this unique invite link with peers at GLA University."
+        size="md"
+        icon="person_add"
+        iconVariant="primary"
+      >
+        <div className="flex flex-col gap-md w-full">
+          <p className="font-body-sm text-on-surface-variant leading-relaxed">
+            Anyone with this link can join the GLA University campus community on TRYBE and connect with students.
+          </p>
+
+          <div className="flex items-center gap-sm bg-surface-container-low border border-outline-variant rounded-lg p-sm w-full">
+            <input
+              type="text"
+              readOnly
+              value={`${window.location.origin}/college/gla-university?invite=gla2026`}
+              className="flex-1 bg-transparent border-none text-body-sm text-on-surface focus:outline-none truncate min-w-0"
+            />
+            <button
+              onClick={handleCopyInvite}
+              className="bg-primary text-on-primary px-md py-xs rounded-md font-label-sm hover:opacity-90 transition-colors flex items-center gap-xs cursor-pointer shrink-0"
+            >
+              <span className="material-symbols-outlined text-[16px]">{copiedLink ? 'check' : 'content_copy'}</span>
+              {copiedLink ? 'Copied!' : 'Copy'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

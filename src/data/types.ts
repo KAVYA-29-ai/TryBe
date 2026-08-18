@@ -1,6 +1,21 @@
 // ─────────────────────────────────────────
-// Core Domain Types for TRYBEE
+// Core Domain Types for TRYBE
 // ─────────────────────────────────────────
+
+export type ConnectionStatus = 'none' | 'pending' | 'connected';
+
+export type PostCategory = 'Campus Gossip' | 'Memes' | 'Ask Help' | 'Photos' | 'General' | 'Hot Takes' | 'Team Finding' | 'Projects' | 'Careers';
+
+export interface Notification {
+  id: string;
+  type: 'connection_request' | 'connection_accept' | 'post_like' | 'post_comment' | 'club_join' | 'event_rsvp';
+  title: string;
+  message: string;
+  timestamp: string;
+  read: boolean;
+  avatar?: string;
+  link?: string;
+}
 
 export interface Person {
   id: string;
@@ -34,6 +49,7 @@ export interface Event {
   id: string;
   title: string;
   description: string;
+  category?: string;
   date: string;
   time: string;
   location: string;
@@ -89,6 +105,7 @@ export interface Post {
   content: string;
   image?: string;
   tag: string;
+  category?: PostCategory;
   likes: number;
   liked: boolean;
   commentsCount: number;
@@ -107,3 +124,4 @@ export interface Comment {
   text: string;
   createdAt: string;
 }
+

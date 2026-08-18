@@ -79,12 +79,25 @@ function formatTime(date: Date): string {
 }
 
 export function DiscussionsTab() {
-  const { userProfile } = useApp();
+  const { userProfile, showToast } = useApp();
   const [activeChannel, setActiveChannel] = useState<Channel>('general');
-  const [channelMessages, setChannelMessages] = useState<Record<Channel, Message[]>>(CHANNEL_SEED);
+  const [channelMessages, setChannelMessages] = useState<Record<Channel, Message[]>>(() => {
+    try {
+      const stored = localStorage.getItem('trybee_discussions_messages');
+      return stored ? JSON.parse(stored) : CHANNEL_SEED;
+    } catch {
+      return CHANNEL_SEED;
+    }
+  });
   const [input, setInput] = useState('');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('trybee_discussions_messages', JSON.stringify(channelMessages));
+    } catch {}
+  }, [channelMessages]);
 
   const CHANNELS: { id: Channel; label: string; description: string }[] = [
     { id: 'general', label: 'general', description: 'General campus chat' },
@@ -107,7 +120,7 @@ export function DiscussionsTab() {
     const newMsg: Message = {
       id: `msg-${Date.now()}`,
       author: userProfile.name,
-      avatar: CURRENT_USER_AVATAR,
+      avatar: userProfile.avatar,
       text,
       time: formatTime(new Date()),
     };
@@ -240,8 +253,12 @@ export function DiscussionsTab() {
         {/* Message Input */}
         <div className="p-md border-t border-outline-variant shrink-0">
           <div className="bg-surface-container-high rounded-xl border border-outline-variant flex items-center gap-sm px-sm py-xs">
-            <button className="p-xs text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center">
-              <span className="material-symbols-outlined text-[20px]">add_circle</span>
+            <button
+              onClick={() => showToast('Image & file attachment features are coming soon.', 'info')}
+              className="p-xs text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center cursor-pointer"
+              aria-label="Add attachment"
+            >
+              <span className="material-symbols-outlined text-[20px]" aria-hidden="true">add_circle</span>
             </button>
             <input
               className="flex-1 bg-transparent border-none focus:ring-0 text-on-surface placeholder:text-on-surface-variant font-body-md outline-none px-sm py-xs"
@@ -252,8 +269,12 @@ export function DiscussionsTab() {
               onKeyDown={handleKeyDown}
             />
             <div className="flex items-center gap-xs">
-              <button className="p-xs text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center">
-                <span className="material-symbols-outlined text-[20px]">mood</span>
+              <button
+                onClick={() => setInput(prev => prev + ' 😊')}
+                className="p-xs text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center cursor-pointer"
+                aria-label="Insert emoji"
+              >
+                <span className="material-symbols-outlined text-[20px]" aria-hidden="true">mood</span>
               </button>
               <button
                 onClick={sendMessage}

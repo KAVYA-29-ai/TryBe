@@ -19,13 +19,34 @@ function timeAgo(iso: string): string {
 }
 
 export default function Work() {
-  const { projects, addProject } = useApp();
+  const { projects, addProject, showToast, userProfile } = useApp();
   const [activeTab, setActiveTab] = useState<'my_projects' | 'browse'>('my_projects');
 
   // Search + filter state (Browse tab)
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'' | Project['projectType']>('');
   const [filterCampus, setFilterCampus] = useState<'' | 'in-campus' | 'off-campus'>('');
+
+  // Requested projects state
+  const [requestedProjects, setRequestedProjects] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem('trybee_requested_projects');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  const handleRequestToJoin = (projectId: string) => {
+    setRequestedProjects(prev => {
+      const next = new Set(prev).add(projectId);
+      try {
+        localStorage.setItem('trybee_requested_projects', JSON.stringify(Array.from(next)));
+      } catch {}
+      return next;
+    });
+    showToast('Join request sent to project owner!');
+  };
 
   // Create project form state
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -43,24 +64,27 @@ export default function Work() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
-  const myProjects = projects.filter(p => p.isOwn);
-  const browseProjects = projects.filter(p => !p.isOwn);
+  const myProjects = projects.filter(p => p.ownerId === userProfile.username);
+  const browseProjects = projects.filter(p => p.ownerId !== userProfile.username);
 
   const filteredBrowse = browseProjects.filter(p => {
-    const q = !searchQuery ||
-      normalize(p.title + p.description + p.technologies.join(' ') + p.skills.join(' ')).includes(
-        normalize(searchQuery)
-      );
-    const type = !filterType || p.projectType === filterType;
-    const campus = !filterCampus || p.campusType === filterCampus;
-    return q && type && campus;
+    const q = searchQuery.trim().toLowerCase();
+    const matchesQ =
+      !q ||
+      p.title.toLowerCase().includes(q) ||
+      p.description.toLowerCase().includes(q) ||
+      p.technologies.some(t => t.toLowerCase().includes(q)) ||
+      p.skills.some(s => s.toLowerCase().includes(q));
+    const matchesType = !filterType || p.projectType === filterType;
+    const matchesCampus = !filterCampus || p.campusType === filterCampus;
+    return matchesQ && matchesType && matchesCampus;
   });
 
   const validateForm = (): boolean => {
     const errors: Partial<typeof form> = {};
-    if (!form.title.trim()) errors.title = 'Title is required.';
-    if (!form.description.trim()) errors.description = 'Description is required.';
-    if (!form.technologies.trim()) errors.technologies = 'At least one technology is required.';
+    if (!form.title.trim()) errors.title = 'Title is required';
+    if (!form.description.trim()) errors.description = 'Description is required';
+    if (!form.technologies.trim()) errors.technologies = 'At least one tech tag is required';
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -75,8 +99,8 @@ export default function Work() {
         id: `proj-${Date.now()}`,
         title: form.title.trim(),
         description: form.description.trim(),
-        ownerId: 'current-user',
-        ownerName: 'Alex (You)',
+        ownerId: userProfile.username,
+        ownerName: userProfile.name,
         technologies: form.technologies.split(',').map(t => t.trim()).filter(Boolean),
         skills: form.skills.split(',').map(s => s.trim()).filter(Boolean),
         projectType: form.projectType,
@@ -179,9 +203,17 @@ export default function Work() {
               )}
             </div>
 
-            {!selectedProject.isOwn && (
-              <button className="w-full py-md bg-primary text-on-primary font-label-md rounded-lg hover:opacity-90 transition-colors shadow-sm">
-                Request to Join
+            {selectedProject.ownerId !== userProfile.username && (
+              <button 
+                onClick={() => handleRequestToJoin(selectedProject.id)}
+                disabled={requestedProjects.has(selectedProject.id)}
+                className={`w-full py-md font-label-md rounded-lg transition-colors shadow-sm cursor-pointer ${
+                  requestedProjects.has(selectedProject.id)
+                    ? 'bg-surface-container-high text-on-surface-variant border border-outline-variant cursor-not-allowed'
+                    : 'bg-primary text-on-primary hover:opacity-90'
+                }`}
+              >
+                {requestedProjects.has(selectedProject.id) ? 'Request Pending ✓' : 'Request to Join'}
               </button>
             )}
           </div>

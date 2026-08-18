@@ -3,11 +3,12 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { CLUBS } from '../data/clubs';
+import { Modal } from '../components/Modal';
 
 type ProfileTab = 'Activity' | 'About' | 'Clubs' | 'Projects';
 
 export default function Profile() {
-  const { userProfile, updateUserProfile, joinedClubs, projects } = useApp();
+  const { userProfile, updateUserProfile, joinedClubs, rsvpdEvents, interestedEvents, homePosts, projects, logout } = useApp();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<ProfileTab>('Activity');
   const [showEditModal, setShowEditModal] = useState(false);
@@ -15,16 +16,16 @@ export default function Profile() {
 
   const myClubs = CLUBS.filter(c => joinedClubs.has(c.id));
   const myProjects = projects.filter(p => p.isOwn);
+  const myPosts = homePosts.filter(p => p.authorName === userProfile.name || p.authorId === userProfile.username);
 
   const handleLogout = () => {
-    // Clear session data and navigate to login
-    localStorage.removeItem('trybee_session');
+    logout();
     navigate('/login');
   };
 
   return (
     <div className="flex-1 overflow-y-auto">
-      {/* Banner — fixed height, no overflow issues */}
+      {/* Banner */}
       <div className="w-full h-40 md:h-52 relative bg-surface-container-high overflow-hidden shrink-0">
         <div className="absolute inset-0 bg-gradient-to-br from-primary-container/40 via-primary/15 to-secondary-container/20" />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/30 to-transparent" />
@@ -33,11 +34,10 @@ export default function Profile() {
       </div>
 
       <div className="max-w-4xl mx-auto px-margin-mobile md:px-lg relative">
-        {/* ── Profile header row ── */}
+        {/* Profile header row */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-md -mt-14 md:-mt-16 mb-lg relative z-10">
           {/* Left: avatar + name */}
           <div className="flex flex-col sm:flex-row sm:items-end gap-md">
-            {/* Avatar */}
             <div className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-background bg-surface-container-high shrink-0 overflow-hidden shadow-xl ring-2 ring-primary/20 relative z-20">
               <img
                 src={userProfile.avatar}
@@ -46,7 +46,6 @@ export default function Profile() {
               />
             </div>
 
-            {/* Name block — inline, no wrapping issues */}
             <div className="pb-1">
               <div className="flex items-center gap-xs">
                 <h2 className="font-bold text-[22px] md:text-[28px] text-on-surface tracking-tight leading-tight">
@@ -86,26 +85,23 @@ export default function Profile() {
               whileTap={{ scale: 0.96 }}
               transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
               onClick={() => setShowEditModal(true)}
-              className="h-9 px-4 rounded-full border border-outline-variant bg-surface font-label-md text-on-surface hover:bg-surface-container-high hover:border-primary/40 transition-colors flex items-center gap-xs text-[13px]"
+              className="h-9 px-4 rounded-full border border-outline-variant bg-surface font-label-md text-on-surface hover:bg-surface-container-high hover:border-primary/40 transition-colors flex items-center gap-xs text-[13px] cursor-pointer"
             >
               <span className="material-symbols-outlined text-[15px]">edit</span>
               Edit Profile
             </motion.button>
-            <Link to="/settings">
-              <motion.button
-                whileTap={{ scale: 0.96 }}
-                transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
-                className="w-9 h-9 flex items-center justify-center rounded-full border border-outline-variant bg-surface text-on-surface-variant hover:bg-surface-container-high transition-colors"
-                title="Settings"
-              >
-                <span className="material-symbols-outlined text-[18px]">settings</span>
-              </motion.button>
+            <Link
+              to="/settings"
+              className="w-9 h-9 flex items-center justify-center rounded-full border border-outline-variant bg-surface text-on-surface-variant hover:bg-surface-container-high transition-colors cursor-pointer"
+              title="Settings"
+            >
+              <span className="material-symbols-outlined text-[18px]">settings</span>
             </Link>
             <motion.button
               whileTap={{ scale: 0.96 }}
               transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
               onClick={() => setShowLogoutConfirm(true)}
-              className="w-9 h-9 flex items-center justify-center rounded-full border border-outline-variant bg-surface text-on-surface-variant hover:bg-error-container/30 hover:text-error hover:border-error/30 transition-colors"
+              className="w-9 h-9 flex items-center justify-center rounded-full border border-outline-variant bg-surface text-on-surface-variant hover:bg-error-container/30 hover:text-error hover:border-error/30 transition-colors cursor-pointer"
               title="Log out"
             >
               <span className="material-symbols-outlined text-[18px]">logout</span>
@@ -126,7 +122,7 @@ export default function Profile() {
           </div>
           <div className="w-px bg-outline-variant" />
           <div className="flex flex-col items-center px-sm">
-            <span className="font-bold text-[18px] text-on-surface">47</span>
+            <span className="font-bold text-[18px] text-on-surface">{rsvpdEvents.size + interestedEvents.size}</span>
             <span className="font-label-sm text-on-surface-variant text-[11px] uppercase tracking-widest">Events</span>
           </div>
         </div>
@@ -154,7 +150,7 @@ export default function Profile() {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`pb-sm font-label-md whitespace-nowrap transition-colors border-b-2 ${
+                className={`pb-sm font-label-md whitespace-nowrap transition-colors border-b-2 cursor-pointer ${
                   activeTab === tab
                     ? 'text-primary border-primary'
                     : 'text-on-surface-variant hover:text-on-surface border-transparent'
@@ -200,51 +196,36 @@ export default function Profile() {
       </AnimatePresence>
 
       {/* Logout Confirm Modal */}
-      <AnimatePresence>
-        {showLogoutConfirm && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-md bg-background/80 backdrop-blur-sm"
-            onClick={() => setShowLogoutConfirm(false)}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 16 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 16 }}
-              transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
-              className="bg-surface border border-outline-variant rounded-xl shadow-2xl w-full max-w-sm p-xl"
-              onClick={e => e.stopPropagation()}
+      <Modal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        title="Log out?"
+        subtitle="You will be redirected to the login page."
+        size="sm"
+        icon="logout"
+        iconVariant="error"
+        footer={
+          <>
+            <button
+              onClick={() => setShowLogoutConfirm(false)}
+              className="px-lg py-sm rounded-lg border border-outline-variant text-on-surface font-label-md hover:bg-surface-container-high transition-colors cursor-pointer"
             >
-              <div className="flex items-center gap-md mb-md">
-                <div className="w-10 h-10 rounded-full bg-error-container/30 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-error">logout</span>
-                </div>
-                <h2 className="font-headline-sm text-on-surface">Log out?</h2>
-              </div>
-              <p className="font-body-sm text-on-surface-variant mb-lg">
-                You'll be redirected to the login page. Your data stays saved in this browser.
-              </p>
-              <div className="flex gap-sm justify-end">
-                <button
-                  onClick={() => setShowLogoutConfirm(false)}
-                  className="px-lg py-sm rounded-lg border border-outline-variant text-on-surface font-label-md hover:bg-surface-container-high transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="px-lg py-sm rounded-lg bg-error text-on-error font-label-md hover:opacity-90 transition-all flex items-center gap-xs"
-                >
-                  <span className="material-symbols-outlined text-[16px]">logout</span>
-                  Log Out
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              Cancel
+            </button>
+            <button
+              onClick={handleLogout}
+              className="px-lg py-sm rounded-lg bg-error text-on-error font-label-md hover:opacity-90 transition-all flex items-center gap-xs cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[16px]">logout</span>
+              Log Out
+            </button>
+          </>
+        }
+      >
+        <p className="font-body-sm text-on-surface-variant leading-relaxed">
+          Are you sure you want to log out? Your session data will stay safely saved in this browser.
+        </p>
+      </Modal>
     </div>
   );
 }
@@ -466,6 +447,7 @@ function EditProfileModal({ profile, onSave, onClose }: EditProfileModalProps) {
     username: profile.username,
     bio: profile.bio,
     location: profile.location,
+    avatar: profile.avatar,
     skillsStr: profile.skills.join(', '),
     interestsStr: profile.interests.join(', '),
   });
@@ -480,142 +462,139 @@ function EditProfileModal({ profile, onSave, onClose }: EditProfileModalProps) {
         username: form.username.trim().replace(/^@/, '') || profile.username,
         bio: form.bio.trim(),
         location: form.location.trim(),
+        avatar: form.avatar.trim() || profile.avatar,
         skills: form.skillsStr.split(',').map(s => s.trim()).filter(Boolean),
         interests: form.interestsStr.split(',').map(s => s.trim()).filter(Boolean),
       });
       setIsSaving(false);
-    }, 300);
+    }, 200);
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-md bg-background/80 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
-        className="bg-surface border border-outline-variant rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between p-lg border-b border-outline-variant">
-          <h2 className="font-headline-sm text-on-surface">Edit Profile</h2>
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title="Edit Profile"
+      subtitle="Update your student profile details and bio."
+      size="lg"
+      icon="edit"
+      iconVariant="primary"
+      footer={
+        <>
           <button
+            type="button"
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-high transition-colors"
+            className="px-lg py-sm rounded-lg border border-outline-variant text-on-surface font-label-md hover:bg-surface-container-high transition-colors cursor-pointer"
           >
-            <span className="material-symbols-outlined text-[20px]">close</span>
+            Cancel
           </button>
+          <button
+            type="button"
+            disabled={isSaving}
+            onClick={(e) => {
+              handleSubmit(e as any);
+            }}
+            className="px-lg py-sm rounded-lg bg-primary text-on-primary font-label-md hover:opacity-90 transition-all disabled:opacity-60 flex items-center gap-xs cursor-pointer"
+          >
+            {isSaving ? (
+              <>
+                <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                Saving...
+              </>
+            ) : (
+              <>
+                <span className="material-symbols-outlined text-[16px]">check</span>
+                Save Changes
+              </>
+            )}
+          </button>
+        </>
+      }
+    >
+      <form id="edit-profile-form" onSubmit={handleSubmit} className="flex flex-col gap-md w-full">
+        <div className="w-full">
+          <label className="block font-label-sm font-medium text-on-surface-variant mb-xs">Full Name</label>
+          <input
+            type="text"
+            value={form.name}
+            onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+            className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-sm px-md text-on-surface focus:outline-none focus:border-primary transition-colors"
+            placeholder="Your full name"
+          />
         </div>
 
-        <form onSubmit={handleSubmit} className="p-lg flex flex-col gap-md">
-          <div>
-            <label className="block font-label-sm text-on-surface-variant mb-xs">Full Name</label>
+        <div className="w-full">
+          <label className="block font-label-sm font-medium text-on-surface-variant mb-xs">Username</label>
+          <div className="relative w-full">
+            <span className="absolute left-md top-1/2 -translate-y-1/2 text-on-surface-variant font-medium">@</span>
             <input
               type="text"
-              value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-sm px-md text-on-surface focus:outline-none focus:border-primary transition-colors"
-              placeholder="Your full name"
+              value={form.username}
+              onChange={e => setForm(f => ({ ...f, username: e.target.value.replace(/^@/, '') }))}
+              className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-sm pl-8 pr-md text-on-surface focus:outline-none focus:border-primary transition-colors"
+              placeholder="username"
             />
           </div>
+        </div>
 
-          <div>
-            <label className="block font-label-sm text-on-surface-variant mb-xs">Username</label>
-            <div className="relative">
-              <span className="absolute left-md top-1/2 -translate-y-1/2 text-on-surface-variant">@</span>
-              <input
-                type="text"
-                value={form.username}
-                onChange={e => setForm(f => ({ ...f, username: e.target.value.replace(/^@/, '') }))}
-                className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-sm pl-8 pr-md text-on-surface focus:outline-none focus:border-primary transition-colors"
-                placeholder="username"
-              />
-            </div>
-          </div>
+        <div className="w-full">
+          <label className="block font-label-sm font-medium text-on-surface-variant mb-xs">Avatar Image URL</label>
+          <input
+            type="text"
+            value={form.avatar}
+            onChange={e => setForm(f => ({ ...f, avatar: e.target.value }))}
+            className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-sm px-md text-on-surface focus:outline-none focus:border-primary transition-colors"
+            placeholder="https://..."
+          />
+        </div>
 
-          <div>
-            <label className="block font-label-sm text-on-surface-variant mb-xs">Bio</label>
-            <textarea
-              value={form.bio}
-              onChange={e => setForm(f => ({ ...f, bio: e.target.value }))}
-              className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-sm px-md text-on-surface focus:outline-none focus:border-primary transition-colors resize-none h-20"
-              placeholder="Tell people about yourself..."
-            />
-          </div>
+        <div className="w-full">
+          <label className="block font-label-sm font-medium text-on-surface-variant mb-xs">Bio</label>
+          <textarea
+            value={form.bio}
+            onChange={e => setForm(f => ({ ...f, bio: e.target.value }))}
+            className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-sm px-md text-on-surface focus:outline-none focus:border-primary transition-colors resize-none h-24"
+            placeholder="Tell people about yourself..."
+          />
+        </div>
 
-          <div>
-            <label className="block font-label-sm text-on-surface-variant mb-xs">Location</label>
-            <input
-              type="text"
-              value={form.location}
-              onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
-              className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-sm px-md text-on-surface focus:outline-none focus:border-primary transition-colors"
-              placeholder="City, Country"
-            />
-          </div>
+        <div className="w-full">
+          <label className="block font-label-sm font-medium text-on-surface-variant mb-xs">Location</label>
+          <input
+            type="text"
+            value={form.location}
+            onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
+            className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-sm px-md text-on-surface focus:outline-none focus:border-primary transition-colors"
+            placeholder="City, Country"
+          />
+        </div>
 
-          <div>
-            <label className="block font-label-sm text-on-surface-variant mb-xs">
-              Skills <span className="text-[11px] ml-xs opacity-60">(comma-separated)</span>
-            </label>
-            <input
-              type="text"
-              value={form.skillsStr}
-              onChange={e => setForm(f => ({ ...f, skillsStr: e.target.value }))}
-              className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-sm px-md text-on-surface focus:outline-none focus:border-primary transition-colors"
-              placeholder="React, Python, Figma"
-            />
-          </div>
+        <div className="w-full">
+          <label className="block font-label-sm font-medium text-on-surface-variant mb-xs">
+            Skills <span className="text-[11px] ml-xs opacity-60">(comma-separated)</span>
+          </label>
+          <input
+            type="text"
+            value={form.skillsStr}
+            onChange={e => setForm(f => ({ ...f, skillsStr: e.target.value }))}
+            className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-sm px-md text-on-surface focus:outline-none focus:border-primary transition-colors"
+            placeholder="React, Python, Figma"
+          />
+        </div>
 
-          <div>
-            <label className="block font-label-sm text-on-surface-variant mb-xs">
-              Interests <span className="text-[11px] ml-xs opacity-60">(comma-separated)</span>
-            </label>
-            <input
-              type="text"
-              value={form.interestsStr}
-              onChange={e => setForm(f => ({ ...f, interestsStr: e.target.value }))}
-              className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-sm px-md text-on-surface focus:outline-none focus:border-primary transition-colors"
-              placeholder="AI, Design, Startups"
-            />
-          </div>
-
-          <div className="flex gap-sm justify-end pt-sm border-t border-outline-variant">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-lg py-sm rounded-lg border border-outline-variant text-on-surface font-label-md hover:bg-surface-container-high transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="px-lg py-sm rounded-lg bg-primary text-on-primary font-label-md hover:opacity-90 transition-all disabled:opacity-60 flex items-center gap-xs"
-            >
-              {isSaving ? (
-                <>
-                  <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <span className="material-symbols-outlined text-[16px]">check</span>
-                  Save Changes
-                </>
-              )}
-            </button>
-          </div>
-        </form>
-      </motion.div>
-    </motion.div>
+        <div className="w-full">
+          <label className="block font-label-sm font-medium text-on-surface-variant mb-xs">
+            Interests <span className="text-[11px] ml-xs opacity-60">(comma-separated)</span>
+          </label>
+          <input
+            type="text"
+            value={form.interestsStr}
+            onChange={e => setForm(f => ({ ...f, interestsStr: e.target.value }))}
+            className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-sm px-md text-on-surface focus:outline-none focus:border-primary transition-colors"
+            placeholder="AI, Design, Startups"
+          />
+        </div>
+      </form>
+    </Modal>
   );
 }
-
-// end of file

@@ -1,437 +1,393 @@
-/**
- * Settings — Apple-design inspired
- *
- * Principles applied (from apple-design.md):
- * - Grouped inset table sections (iOS Settings pattern)
- * - iOS-style toggle: 51×31px, smooth spring transition, green for enabled
- * - Spring transitions on section switch (bounce:0, duration:0.3)
- * - Translucent sidebar with backdrop-filter (§12)
- * - Respond on press: active:scale-[0.98] on buttons (§1)
- * - Tight negative tracking on headings, comfortable body leading (§15)
- * - Spatial consistency: back arrow returns to same origin (§7)
- */
-import { useState, type ReactNode } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { Modal } from '../components/Modal';
 
-type SettingsSection = 'account' | 'notifications' | 'privacy' | 'appearance' | 'data';
-
-const SECTIONS: { id: SettingsSection; label: string; icon: string }[] = [
-  { id: 'account',       label: 'Account',        icon: 'manage_accounts' },
-  { id: 'notifications', label: 'Notifications',   icon: 'notifications'   },
-  { id: 'privacy',       label: 'Privacy & Safety',icon: 'lock'            },
-  { id: 'appearance',    label: 'Appearance',      icon: 'palette'         },
-  { id: 'data',          label: 'Data & Storage',  icon: 'database'        },
-];
-
-// ── iOS-style toggle (§1: respond on press, §4: spring) ──────────────────
-
-function Toggle({ checked, onChange, label }: { checked: boolean; onChange: () => void; label?: string }) {
-  return (
-    <button
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      onClick={onChange}
-      className={`relative inline-flex h-[28px] w-[48px] shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 focus:outline-none active:scale-95 ${
-        checked ? 'bg-primary' : 'bg-surface-container-highest'
-      }`}
-    >
-      <motion.span
-        layout
-        transition={{ type: 'spring', bounce: 0.3, duration: 0.3 }}
-        className={`inline-block h-[22px] w-[22px] rounded-full bg-white shadow-md ${
-          checked ? 'translate-x-[22px]' : 'translate-x-[3px]'
-        }`}
-      />
-    </button>
-  );
+function safeParseStorage<T>(key: string, fallback: T): T {
+  try {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : fallback;
+  } catch {
+    return fallback;
+  }
 }
-
-// ── Grouped list primitives (iOS Settings-style inset cards) ──────────────
-
-function GroupedSection({ label, children }: { label?: string; children: ReactNode }) {
-  return (
-    <div className="mb-xl">
-      {label && (
-        <p className="font-label-sm text-[11px] text-on-surface-variant uppercase tracking-widest px-sm mb-xs">
-          {label}
-        </p>
-      )}
-      <div className="rounded-2xl border border-outline-variant/60 overflow-hidden bg-surface divide-y divide-outline-variant/40">
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function Row({ children, danger }: { children: ReactNode; danger?: boolean }) {
-  return (
-    <div className={`flex items-center justify-between px-lg py-sm min-h-[52px] gap-md ${danger ? 'bg-error-container/5' : 'bg-surface'}`}>
-      {children}
-    </div>
-  );
-}
-
-function RowLabel({ label, description, danger }: { label: string; description?: string; danger?: boolean }) {
-  return (
-    <div className="flex-1 min-w-0">
-      <p className={`font-label-md text-[14px] leading-tight ${danger ? 'text-error' : 'text-on-surface'}`}>{label}</p>
-      {description && <p className="font-body-sm text-[12px] text-on-surface-variant mt-[2px] leading-relaxed">{description}</p>}
-    </div>
-  );
-}
-
-function ToggleRow({ label, description, checked, onChange }: {
-  label: string; description?: string; checked: boolean; onChange: () => void;
-}) {
-  return (
-    <Row>
-      <RowLabel label={label} description={description} />
-      <Toggle checked={checked} onChange={onChange} label={label} />
-    </Row>
-  );
-}
-
-// ── Input row ─────────────────────────────────────────────────────────────
-
-function InputRow({ label, value, onChange, type = 'text', disabled, placeholder }: {
-  label: string; value: string; onChange?: (v: string) => void;
-  type?: string; disabled?: boolean; placeholder?: string;
-}) {
-  return (
-    <Row>
-      <label className="font-label-md text-[14px] text-on-surface shrink-0 w-28">{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={e => onChange?.(e.target.value)}
-        disabled={disabled}
-        placeholder={placeholder}
-        className={`flex-1 min-w-0 bg-transparent border-none text-right font-body-md text-[14px] focus:outline-none text-on-surface placeholder:text-on-surface-variant/40 ${
-          disabled ? 'opacity-40 cursor-not-allowed' : ''
-        }`}
-      />
-    </Row>
-  );
-}
-
-// ── Main ──────────────────────────────────────────────────────────────────
 
 export default function Settings() {
-  const [activeSection, setActiveSection] = useState<SettingsSection>('account');
   const navigate = useNavigate();
+  const { userProfile, updateUserProfile, logout, showToast } = useApp();
+
+  const [activeSection, setActiveSection] = useState<'profile' | 'account' | 'notifications' | 'privacy' | 'appearance'>('profile');
+
+  // Persisted local settings
+  const [emailNotifications, setEmailNotifications] = useState(() => safeParseStorage('trybee_settings_email', true));
+  const [pushNotifications, setPushNotifications] = useState(() => safeParseStorage('trybee_settings_push', true));
+  const [publicProfile, setPublicProfile] = useState(() => safeParseStorage('trybee_settings_public', true));
+
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('trybee_settings_email', JSON.stringify(emailNotifications));
+  }, [emailNotifications]);
+
+  useEffect(() => {
+    localStorage.setItem('trybee_settings_push', JSON.stringify(pushNotifications));
+  }, [pushNotifications]);
+
+  useEffect(() => {
+    localStorage.setItem('trybee_settings_public', JSON.stringify(publicProfile));
+  }, [publicProfile]);
+
+  const handleExportData = () => {
+    try {
+      const data = {
+        userProfile,
+        joinedClubs: Array.from(safeParseStorage<string[]>('trybee_joinedClubs', [])),
+        connections: safeParseStorage('trybee_connections', {}),
+        exportedAt: new Date().toISOString(),
+      };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `trybee-data-export-${userProfile.username}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Your TRYBE data export has downloaded!');
+    } catch {
+      showToast('Failed to export data', 'error');
+    }
+  };
+
+  const handleSavePassword = () => {
+    if (!currentPassword.trim()) {
+      showToast('Please enter your current password.', 'error');
+      return;
+    }
+    if (newPassword.length < 6) {
+      showToast('New password must be at least 6 characters long.', 'error');
+      return;
+    }
+    setShowPasswordModal(false);
+    setCurrentPassword('');
+    setNewPassword('');
+    showToast('Password updated successfully!');
+  };
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      <div className="max-w-[960px] mx-auto p-margin-mobile md:p-margin-desktop">
-
-        {/* Page header */}
-        <div className="flex items-center gap-md mb-xl">
-          <button
-            onClick={() => navigate(-1)}
-            className="w-9 h-9 flex items-center justify-center rounded-full border border-outline-variant/60 bg-surface/80 backdrop-blur-sm text-on-surface-variant hover:bg-surface-container-high active:scale-95 transition-all duration-150"
-          >
-            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-          </button>
-          <h1 className="font-bold text-[22px] text-on-surface tracking-[-0.02em]">Settings</h1>
+    <div className="flex-1 overflow-y-auto bg-background text-on-background p-margin-mobile md:p-margin-desktop max-w-[1200px] mx-auto w-full">
+      <div className="flex flex-col gap-lg">
+        {/* Header */}
+        <div className="border-b border-outline-variant/50 pb-md flex justify-between items-end">
+          <div>
+            <h1 className="font-headline-lg text-headline-lg text-on-surface">Settings</h1>
+            <p className="font-body-sm text-on-surface-variant">Manage your account preferences, privacy, and notifications.</p>
+          </div>
         </div>
 
-        <div className="flex flex-col md:flex-row gap-xl">
-
-          {/* Sidebar — translucent material (§12) */}
-          <nav className="md:w-52 shrink-0">
-            <div className="md:sticky md:top-6 rounded-2xl border border-outline-variant/60 overflow-hidden bg-surface/80 backdrop-blur-xl backdrop-saturate-150 divide-y divide-outline-variant/30">
-              {SECTIONS.map(s => {
-                const active = activeSection === s.id;
-                return (
-                  <button
-                    key={s.id}
-                    onClick={() => setActiveSection(s.id)}
-                    className={`w-full flex items-center gap-sm px-md py-sm text-left transition-colors active:scale-[0.98] ${
-                      active
-                        ? 'bg-primary-container/25 text-primary'
-                        : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
-                    }`}
-                  >
-                    <span
-                      className="material-symbols-outlined text-[19px]"
-                      style={{ fontVariationSettings: active ? '"FILL" 1' : '"FILL" 0' }}
-                    >
-                      {s.icon}
-                    </span>
-                    <span className="font-label-md text-[13px]">{s.label}</span>
-                    {active && (
-                      <span className="ml-auto material-symbols-outlined text-[14px] text-primary">chevron_right</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-lg items-start">
+          {/* Navigation Sidebar */}
+          <nav className="flex flex-col gap-xs w-full">
+            {[
+              { id: 'profile', label: 'Profile Settings', icon: 'person' },
+              { id: 'account', label: 'Account & Security', icon: 'security' },
+              { id: 'notifications', label: 'Notifications', icon: 'notifications' },
+              { id: 'privacy', label: 'Privacy & Sharing', icon: 'lock' },
+              { id: 'appearance', label: 'Appearance', icon: 'palette' },
+            ].map((sec) => (
+              <button
+                key={sec.id}
+                onClick={() => setActiveSection(sec.id as any)}
+                className={`flex items-center gap-sm px-md py-sm rounded-lg font-label-md transition-colors text-left cursor-pointer w-full ${
+                  activeSection === sec.id
+                    ? 'bg-primary-container/20 text-primary border-l-4 border-primary font-semibold'
+                    : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[20px]" aria-hidden="true">{sec.icon}</span>
+                {sec.label}
+              </button>
+            ))}
           </nav>
 
-          {/* Content — spring enter (§4) */}
-          <div className="flex-1 min-w-0">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeSection}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
-              >
-                {activeSection === 'account'       && <AccountSettings />}
-                {activeSection === 'notifications' && <NotificationSettings />}
-                {activeSection === 'privacy'       && <PrivacySettings />}
-                {activeSection === 'appearance'    && <AppearanceSettings />}
-                {activeSection === 'data'          && <DataSettings />}
-              </motion.div>
-            </AnimatePresence>
+          {/* Settings Section Content */}
+          <div className="md:col-span-3 w-full">
+            {activeSection === 'profile' && (
+              <div className="bg-surface border border-outline-variant rounded-xl p-lg md:p-xl flex flex-col gap-lg w-full shadow-sm">
+                <div className="border-b border-outline-variant/30 pb-sm">
+                  <h2 className="font-headline-sm text-on-surface">Profile Details</h2>
+                  <p className="font-body-sm text-on-surface-variant text-[13px] mt-xs">Update your public student profile information</p>
+                </div>
+                <div className="flex flex-col gap-md w-full">
+                  <div className="w-full">
+                    <label htmlFor="settings-name" className="block font-label-sm text-on-surface mb-xs font-medium">Display Name</label>
+                    <input
+                      id="settings-name"
+                      type="text"
+                      value={userProfile.name}
+                      onChange={e => updateUserProfile({ name: e.target.value }, true)}
+                      className="w-full bg-surface-container-low border border-outline-variant rounded-lg px-md py-sm text-on-surface focus:outline-none focus:border-primary transition-colors"
+                    />
+                  </div>
+                  <div className="w-full">
+                    <label htmlFor="settings-college" className="block font-label-sm text-on-surface mb-xs font-medium">College / University</label>
+                    <input
+                      id="settings-college"
+                      type="text"
+                      value={userProfile.college}
+                      onChange={e => updateUserProfile({ college: e.target.value }, true)}
+                      className="w-full bg-surface-container-low border border-outline-variant rounded-lg px-md py-sm text-on-surface focus:outline-none focus:border-primary transition-colors"
+                    />
+                  </div>
+                  <div className="w-full">
+                    <label htmlFor="settings-bio" className="block font-label-sm text-on-surface mb-xs font-medium">Bio</label>
+                    <textarea
+                      id="settings-bio"
+                      value={userProfile.bio}
+                      onChange={e => updateUserProfile({ bio: e.target.value }, true)}
+                      className="w-full bg-surface-container-low border border-outline-variant rounded-lg p-md text-on-surface focus:outline-none focus:border-primary h-28 resize-none transition-colors"
+                    />
+                  </div>
+                  <div className="pt-sm">
+                    <button
+                      onClick={() => showToast('Profile details updated successfully!')}
+                      className="px-lg py-sm bg-primary text-on-primary font-label-md rounded-lg hover:opacity-90 transition-opacity cursor-pointer inline-flex items-center gap-xs"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">check</span>
+                      Save Profile
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeSection === 'account' && (
+              <div className="bg-surface border border-outline-variant rounded-xl p-lg md:p-xl flex flex-col gap-lg w-full shadow-sm">
+                <div className="border-b border-outline-variant/30 pb-sm">
+                  <h2 className="font-headline-sm text-on-surface">Account &amp; Security</h2>
+                  <p className="font-body-sm text-on-surface-variant text-[13px] mt-xs">Manage credentials, export data, or deactivate account</p>
+                </div>
+                <div className="flex flex-col gap-md w-full">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between p-md border border-outline-variant/50 rounded-lg gap-sm bg-surface-container-low/30">
+                    <div>
+                      <h3 className="font-label-md text-on-surface font-semibold">Password</h3>
+                      <p className="font-body-sm text-on-surface-variant text-[12px]">Update your account security password</p>
+                    </div>
+                    <button
+                      onClick={() => setShowPasswordModal(true)}
+                      className="px-md py-xs bg-surface-container-high border border-outline-variant rounded-lg font-label-sm text-on-surface hover:bg-surface-container-highest transition-colors cursor-pointer shrink-0"
+                    >
+                      Update Password
+                    </button>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between p-md border border-outline-variant/50 rounded-lg gap-sm bg-surface-container-low/30">
+                    <div>
+                      <h3 className="font-label-md text-on-surface font-semibold">Data Export</h3>
+                      <p className="font-body-sm text-on-surface-variant text-[12px]">Download a JSON copy of your connections &amp; profile data</p>
+                    </div>
+                    <button
+                      onClick={handleExportData}
+                      className="px-md py-xs bg-primary-container text-on-primary-container border border-primary/30 rounded-lg font-label-sm hover:bg-primary hover:text-on-primary transition-colors cursor-pointer shrink-0"
+                    >
+                      Export Data
+                    </button>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between p-md border border-error/30 bg-error-container/10 rounded-lg gap-sm mt-md">
+                    <div>
+                      <h3 className="font-label-md text-error font-semibold">Deactivate Account</h3>
+                      <p className="font-body-sm text-on-surface-variant text-[12px]">Temporarily disable your profile on TRYBE</p>
+                    </div>
+                    <button
+                      onClick={() => setShowDeactivateModal(true)}
+                      className="px-md py-xs bg-error text-on-error rounded-lg font-label-sm hover:opacity-90 transition-colors cursor-pointer shrink-0"
+                    >
+                      Deactivate
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeSection === 'notifications' && (
+              <div className="bg-surface border border-outline-variant rounded-xl p-lg md:p-xl flex flex-col gap-lg w-full shadow-sm">
+                <div className="border-b border-outline-variant/30 pb-sm">
+                  <h2 className="font-headline-sm text-on-surface">Notification Preferences</h2>
+                  <p className="font-body-sm text-on-surface-variant text-[13px] mt-xs">Control how and when TRYBE sends you alerts</p>
+                </div>
+                <div className="flex flex-col gap-md w-full">
+                  <label className="flex items-center justify-between p-md border border-outline-variant/50 rounded-lg cursor-pointer bg-surface-container-low/30 hover:border-primary/40 transition-colors">
+                    <div>
+                      <h3 className="font-label-md text-on-surface font-semibold">Email Notifications</h3>
+                      <p className="font-body-sm text-on-surface-variant text-[12px]">Receive updates about new connection requests &amp; events</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={emailNotifications}
+                      onChange={e => setEmailNotifications(e.target.checked)}
+                      className="w-5 h-5 accent-primary cursor-pointer"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-md border border-outline-variant/50 rounded-lg cursor-pointer bg-surface-container-low/30 hover:border-primary/40 transition-colors">
+                    <div>
+                      <h3 className="font-label-md text-on-surface font-semibold">In-App Push Alerts</h3>
+                      <p className="font-body-sm text-on-surface-variant text-[12px]">Show toast notifications when your posts receive likes or comments</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={pushNotifications}
+                      onChange={e => setPushNotifications(e.target.checked)}
+                      className="w-5 h-5 accent-primary cursor-pointer"
+                    />
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {activeSection === 'privacy' && (
+              <div className="bg-surface border border-outline-variant rounded-xl p-lg md:p-xl flex flex-col gap-lg w-full shadow-sm">
+                <div className="border-b border-outline-variant/30 pb-sm">
+                  <h2 className="font-headline-sm text-on-surface">Privacy &amp; Sharing</h2>
+                  <p className="font-body-sm text-on-surface-variant text-[13px] mt-xs">Manage visibility settings and privacy rules</p>
+                </div>
+                <div className="flex flex-col gap-md w-full">
+                  <label className="flex items-center justify-between p-md border border-outline-variant/50 rounded-lg cursor-pointer bg-surface-container-low/30 hover:border-primary/40 transition-colors">
+                    <div>
+                      <h3 className="font-label-md text-on-surface font-semibold">Public Profile</h3>
+                      <p className="font-body-sm text-on-surface-variant text-[12px]">Allow students from other colleges to view your profile in Discover</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={publicProfile}
+                      onChange={e => setPublicProfile(e.target.checked)}
+                      className="w-5 h-5 accent-primary cursor-pointer"
+                    />
+                  </label>
+
+                  <div className="pt-md border-t border-outline-variant/30 flex flex-col gap-xs">
+                    <Link to="/privacy" className="text-primary font-label-md hover:underline flex items-center gap-xs">
+                      Read Privacy Policy <span className="material-symbols-outlined text-[16px]" aria-hidden="true">arrow_forward</span>
+                    </Link>
+                    <Link to="/terms" className="text-primary font-label-md hover:underline flex items-center gap-xs">
+                      Read Terms of Service <span className="material-symbols-outlined text-[16px]" aria-hidden="true">arrow_forward</span>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeSection === 'appearance' && (
+              <div className="bg-surface border border-outline-variant rounded-xl p-lg md:p-xl flex flex-col gap-lg w-full shadow-sm">
+                <div className="border-b border-outline-variant/30 pb-sm">
+                  <h2 className="font-headline-sm text-on-surface">Appearance &amp; Theme</h2>
+                  <p className="font-body-sm text-on-surface-variant text-[13px] mt-xs">Customize application display styling and themes</p>
+                </div>
+                <div className="flex flex-col gap-md w-full">
+                  <div className="p-md border border-outline-variant/50 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-sm bg-surface-container-low/30">
+                    <div>
+                      <h3 className="font-label-md text-on-surface font-semibold">Theme Mode</h3>
+                      <p className="font-body-sm text-on-surface-variant text-[12px]">TRYBE uses a signature kinetic dark design system.</p>
+                    </div>
+                    <span className="px-md py-xs bg-primary-container/20 text-primary border border-primary-container rounded-full text-label-sm font-semibold self-start sm:self-auto shrink-0">
+                      Dark Mode Active
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Update Password Modal */}
+      <Modal
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+        title="Update Password"
+        subtitle="Ensure your account stays safe by using a strong password."
+        size="sm"
+        icon="key"
+        iconVariant="primary"
+        footer={
+          <>
+            <button
+              onClick={() => setShowPasswordModal(false)}
+              className="px-lg py-sm rounded-lg border border-outline-variant text-on-surface font-label-md hover:bg-surface-container-high transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSavePassword}
+              className="px-lg py-sm rounded-lg bg-primary text-on-primary font-label-md hover:opacity-90 transition-opacity cursor-pointer"
+            >
+              Save Password
+            </button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-md w-full">
+          <div className="w-full">
+            <label className="block text-[13px] font-medium text-on-surface-variant mb-xs">Current Password</label>
+            <input
+              type="password"
+              value={currentPassword}
+              onChange={e => setCurrentPassword(e.target.value)}
+              placeholder="Enter current password"
+              className="w-full bg-surface-container-low border border-outline-variant rounded-lg p-sm text-on-surface focus:outline-none focus:border-primary transition-colors"
+            />
+          </div>
+          <div className="w-full">
+            <label className="block text-[13px] font-medium text-on-surface-variant mb-xs">New Password</label>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={e => setNewPassword(e.target.value)}
+              placeholder="At least 6 characters"
+              className="w-full bg-surface-container-low border border-outline-variant rounded-lg p-sm text-on-surface focus:outline-none focus:border-primary transition-colors"
+            />
+          </div>
+        </div>
+      </Modal>
+
+      {/* Deactivate Account Modal */}
+      <Modal
+        isOpen={showDeactivateModal}
+        onClose={() => setShowDeactivateModal(false)}
+        title="Deactivate Account?"
+        subtitle="You will be logged out and your profile will be hidden."
+        size="sm"
+        icon="warning"
+        iconVariant="error"
+        footer={
+          <>
+            <button
+              onClick={() => setShowDeactivateModal(false)}
+              className="px-lg py-sm rounded-lg border border-outline-variant text-on-surface font-label-md hover:bg-surface-container-high transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                setShowDeactivateModal(false);
+                logout();
+                navigate('/login');
+              }}
+              className="px-lg py-sm rounded-lg bg-error text-on-error font-label-md hover:opacity-90 transition-opacity cursor-pointer"
+            >
+              Confirm Deactivate
+            </button>
+          </>
+        }
+      >
+        <p className="font-body-sm text-on-surface-variant leading-relaxed">
+          Are you sure you want to deactivate your profile? You will be logged out immediately and your student profile won't be visible to others.
+        </p>
+      </Modal>
     </div>
   );
 }
 
-// ── Account ───────────────────────────────────────────────────────────────
-
-function AccountSettings() {
-  const { userProfile, updateUserProfile } = useApp();
-  const [email, setEmail] = useState('kavya@gla.ac.in');
-  const [savedAt, setSavedAt] = useState<number | null>(null);
-  const saved = savedAt !== null && Date.now() - savedAt < 2000;
-
-  const handleSave = () => {
-    setSavedAt(Date.now());
-    setTimeout(() => setSavedAt(null), 2000);
-  };
-
-  return (
-    <>
-      <GroupedSection label="Profile">
-        <InputRow label="Full Name"  value={userProfile.name}     onChange={v => updateUserProfile({ name: v })}     placeholder="Your name" />
-        <InputRow label="Username"   value={`@${userProfile.username}`} onChange={v => updateUserProfile({ username: v.replace(/^@/, '') })} placeholder="@username" />
-        <InputRow label="Email"      value={email}                onChange={setEmail}                                type="email" placeholder="email@uni.edu" />
-        <InputRow label="College"    value={userProfile.college}  disabled placeholder="GLA University" />
-      </GroupedSection>
-
-      <div className="flex justify-end mb-xl -mt-lg">
-        <motion.button
-          whileTap={{ scale: 0.96 }}
-          transition={{ type: 'spring', bounce: 0, duration: 0.25 }}
-          onClick={handleSave}
-          className={`h-9 px-lg rounded-full font-label-md text-[13px] transition-all flex items-center gap-xs ${
-            saved
-              ? 'bg-green-600/20 text-green-400 border border-green-600/30'
-              : 'bg-primary text-on-primary hover:opacity-90 shadow-sm'
-          }`}
-        >
-          {saved ? <><span className="material-symbols-outlined text-[14px]">check</span> Saved!</> : 'Save Changes'}
-        </motion.button>
-      </div>
-
-      <GroupedSection label="Security">
-        <Row>
-          <RowLabel label="Current Password" />
-          <input type="password" placeholder="••••••••" className="bg-transparent border-none text-right font-body-md text-[14px] w-36 focus:outline-none text-on-surface placeholder:text-on-surface-variant/40" />
-        </Row>
-        <Row>
-          <RowLabel label="New Password" />
-          <input type="password" placeholder="••••••••" className="bg-transparent border-none text-right font-body-md text-[14px] w-36 focus:outline-none text-on-surface placeholder:text-on-surface-variant/40" />
-        </Row>
-        <Row>
-          <div />
-          <button className="h-8 px-md rounded-full border border-outline-variant text-on-surface font-label-sm text-[12px] hover:bg-surface-container-high active:scale-95 transition-all">
-            Update Password
-          </button>
-        </Row>
-      </GroupedSection>
-
-      <GroupedSection label="Danger Zone">
-        <Row danger>
-          <RowLabel label="Deactivate Account" description="Temporarily disable. You can reactivate anytime." danger />
-          <button className="h-8 px-md rounded-full border border-error/40 text-error font-label-sm text-[12px] hover:bg-error-container/20 active:scale-95 transition-all shrink-0">
-            Deactivate
-          </button>
-        </Row>
-      </GroupedSection>
-    </>
-  );
-}
-
-// ── Notifications ─────────────────────────────────────────────────────────
-
-function NotificationSettings() {
-  const [p, setP] = useState({
-    clubPosts: true, eventReminders: true, newMembers: false,
-    projectRequests: true, comments: true, likes: false,
-    collegeAnnouncements: true, emailDigest: false,
-  });
-  const toggle = (k: keyof typeof p) => setP(prev => ({ ...prev, [k]: !prev[k] }));
-
-  return (
-    <>
-      <GroupedSection label="Club & College">
-        <ToggleRow label="Club post updates"      description="When someone posts in your clubs" checked={p.clubPosts}            onChange={() => toggle('clubPosts')} />
-        <ToggleRow label="New club members"                                                        checked={p.newMembers}            onChange={() => toggle('newMembers')} />
-        <ToggleRow label="College announcements"                                                   checked={p.collegeAnnouncements}  onChange={() => toggle('collegeAnnouncements')} />
-      </GroupedSection>
-
-      <GroupedSection label="Events">
-        <ToggleRow label="Event reminders" description="1 hour before an event you RSVP'd to" checked={p.eventReminders} onChange={() => toggle('eventReminders')} />
-      </GroupedSection>
-
-      <GroupedSection label="Social">
-        <ToggleRow label="Comments on your posts" checked={p.comments}         onChange={() => toggle('comments')} />
-        <ToggleRow label="Likes on your posts"    checked={p.likes}            onChange={() => toggle('likes')} />
-        <ToggleRow label="Project join requests"  checked={p.projectRequests}  onChange={() => toggle('projectRequests')} />
-      </GroupedSection>
-
-      <GroupedSection label="Email">
-        <ToggleRow label="Weekly digest" description="A summary of what's happening on campus" checked={p.emailDigest} onChange={() => toggle('emailDigest')} />
-      </GroupedSection>
-    </>
-  );
-}
-
-// ── Privacy ───────────────────────────────────────────────────────────────
-
-function PrivacySettings() {
-  const [p, setP] = useState({
-    publicProfile: true, showCollege: true, showClubs: true,
-    showProjects: true, allowMessages: true, indexProfile: false,
-  });
-  const toggle = (k: keyof typeof p) => setP(prev => ({ ...prev, [k]: !prev[k] }));
-
-  return (
-    <>
-      <GroupedSection label="Profile Visibility">
-        <ToggleRow label="Public profile"    description="Anyone on TRYBEE can view your profile" checked={p.publicProfile} onChange={() => toggle('publicProfile')} />
-        <ToggleRow label="Show my college"                                                          checked={p.showCollege}   onChange={() => toggle('showCollege')} />
-        <ToggleRow label="Show joined clubs"                                                        checked={p.showClubs}     onChange={() => toggle('showClubs')} />
-        <ToggleRow label="Show my projects"                                                         checked={p.showProjects}  onChange={() => toggle('showProjects')} />
-      </GroupedSection>
-
-      <GroupedSection label="Messaging">
-        <ToggleRow label="Allow messages from anyone" description="If off, only club members can message you" checked={p.allowMessages} onChange={() => toggle('allowMessages')} />
-      </GroupedSection>
-
-      <GroupedSection label="Search & Discovery">
-        <ToggleRow label="Allow search engine indexing" checked={p.indexProfile} onChange={() => toggle('indexProfile')} />
-      </GroupedSection>
-    </>
-  );
-}
-
-// ── Appearance ────────────────────────────────────────────────────────────
-
-function AppearanceSettings() {
-  const [fontSize, setFontSize] = useState<'small' | 'medium' | 'large'>('medium');
-
-  return (
-    <>
-      <GroupedSection label="Theme">
-        {(['Dark', 'System'] as const).map(theme => (
-          <Row key={theme}>
-            <div className="flex items-center gap-sm">
-              <span className="material-symbols-outlined text-[18px] text-on-surface-variant">
-                {theme === 'Dark' ? 'dark_mode' : 'brightness_auto'}
-              </span>
-              <RowLabel label={theme} description={theme === 'Dark' ? 'Always dark' : 'Follows your device'} />
-            </div>
-            {theme === 'Dark' && (
-              <span className="material-symbols-outlined text-primary text-[18px]" style={{ fontVariationSettings: '"FILL" 1' }}>
-                check_circle
-              </span>
-            )}
-          </Row>
-        ))}
-        <Row>
-          <RowLabel label="Light Mode" description="Coming soon" />
-          <span className="font-label-sm text-[11px] text-on-surface-variant px-sm py-xs rounded-full bg-surface-container-high border border-outline-variant">Soon</span>
-        </Row>
-      </GroupedSection>
-
-      <GroupedSection label="Text Size">
-        <Row>
-          <span className="text-[12px] text-on-surface-variant font-body-sm shrink-0">A</span>
-          <div className="flex gap-sm flex-1 mx-md">
-            {(['small', 'medium', 'large'] as const).map(size => (
-              <button
-                key={size}
-                onClick={() => setFontSize(size)}
-                className={`flex-1 py-xs rounded-lg border font-label-sm text-[12px] capitalize transition-all active:scale-95 ${
-                  fontSize === size
-                    ? 'border-primary bg-primary-container/20 text-primary'
-                    : 'border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
-                }`}
-              >
-                {size}
-              </button>
-            ))}
-          </div>
-          <span className="text-[20px] text-on-surface-variant font-body-lg shrink-0">A</span>
-        </Row>
-      </GroupedSection>
-    </>
-  );
-}
-
-// ── Data & Storage ────────────────────────────────────────────────────────
-
-function DataSettings() {
-  const [cleared, setCleared] = useState(false);
-
-  const clearLocalData = () => {
-    Object.keys(localStorage).filter(k => k.startsWith('trybee_')).forEach(k => localStorage.removeItem(k));
-    setCleared(true);
-    setTimeout(() => setCleared(false), 3000);
-  };
-
-  return (
-    <>
-      <GroupedSection label="Local Storage">
-        <Row>
-          <RowLabel label="Clear local data" description="Removes clubs, posts, RSVPs. Cannot be undone." />
-          <button
-            onClick={clearLocalData}
-            className={`h-8 px-md rounded-full border font-label-sm text-[12px] transition-all active:scale-95 shrink-0 ${
-              cleared
-                ? 'border-green-600/30 text-green-400 bg-green-600/10'
-                : 'border-error/40 text-error hover:bg-error-container/20'
-            }`}
-          >
-            {cleared ? 'Cleared ✓' : 'Clear Data'}
-          </button>
-        </Row>
-      </GroupedSection>
-
-      <GroupedSection label="Export">
-        <Row>
-          <RowLabel label="Download your data" description="Posts, projects, and profile as JSON." />
-          <button className="h-8 px-md rounded-full border border-outline-variant text-on-surface font-label-sm text-[12px] hover:bg-surface-container-high active:scale-95 transition-all flex items-center gap-xs shrink-0">
-            <span className="material-symbols-outlined text-[14px]">download</span>
-            Export
-          </button>
-        </Row>
-      </GroupedSection>
-
-      <GroupedSection label="About">
-        <Row>
-          <RowLabel label="TRYBEE Version" />
-          <span className="font-label-sm text-[12px] text-on-surface-variant">1.0.0</span>
-        </Row>
-        <Row>
-          <RowLabel label="Privacy Policy" />
-          <span className="material-symbols-outlined text-[16px] text-on-surface-variant">open_in_new</span>
-        </Row>
-        <Row>
-          <RowLabel label="Terms of Service" />
-          <span className="material-symbols-outlined text-[16px] text-on-surface-variant">open_in_new</span>
-        </Row>
-      </GroupedSection>
-    </>
-  );
-}

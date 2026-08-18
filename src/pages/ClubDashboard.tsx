@@ -230,6 +230,7 @@ interface ClubFeedTabProps {
 }
 
 function ClubFeedTab({ clubId, posts, onAddPost, onLike, onUnlike, likedPosts, comments, onAddComment }: ClubFeedTabProps) {
+  const { userProfile } = useApp();
   const [text, setText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [postError, setPostError] = useState('');
@@ -248,9 +249,9 @@ function ClubFeedTab({ clubId, posts, onAddPost, onLike, onUnlike, likedPosts, c
       onAddPost({
         id: `club-post-${Date.now()}`,
         authorId: 'current-user',
-        authorName: 'Alex (You)',
-        authorAvatar: CURRENT_USER_AVATAR,
-        authorMajor: 'CS & Engineering',
+        authorName: userProfile.name,
+        authorAvatar: userProfile.avatar,
+        authorMajor: userProfile.college,
         clubId,
         content: text.trim(),
         tag: 'Update',
@@ -271,8 +272,8 @@ function ClubFeedTab({ clubId, posts, onAddPost, onLike, onUnlike, likedPosts, c
       id: `comment-${Date.now()}`,
       postId,
       authorId: 'current-user',
-      authorName: 'Alex (You)',
-      authorAvatar: CURRENT_USER_AVATAR,
+      authorName: userProfile.name,
+      authorAvatar: userProfile.avatar,
       text: t,
       createdAt: new Date().toISOString(),
     });
@@ -283,7 +284,7 @@ function ClubFeedTab({ clubId, posts, onAddPost, onLike, onUnlike, likedPosts, c
     <div className="flex flex-col gap-lg">
       <form onSubmit={handlePost} className="bg-surface rounded-xl border border-outline-variant p-md flex flex-col gap-md">
         <div className="flex gap-md items-center">
-          <img className="w-10 h-10 rounded-full object-cover border border-outline-variant shrink-0" src={CURRENT_USER_AVATAR} alt="You" />
+          <img className="w-10 h-10 rounded-full object-cover border border-outline-variant shrink-0" src={userProfile.avatar} alt={userProfile.name} />
           <textarea
             value={text}
             onChange={e => { setText(e.target.value); setPostError(''); }}
@@ -352,7 +353,7 @@ function ClubFeedTab({ clubId, posts, onAddPost, onLike, onUnlike, likedPosts, c
                     </div>
                   ))}
                   <div className="flex gap-sm mt-xs">
-                    <img className="w-7 h-7 rounded-full object-cover" src={CURRENT_USER_AVATAR} alt="You" />
+                    <img className="w-7 h-7 rounded-full object-cover" src={userProfile.avatar} alt={userProfile.name} />
                     <input
                       type="text"
                       placeholder="Add a comment..."

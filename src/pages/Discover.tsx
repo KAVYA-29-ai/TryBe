@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { PEOPLE } from '../data/people';
@@ -6,11 +6,10 @@ import { CLUBS } from '../data/clubs';
 import { EVENTS } from '../data/events';
 import { COLLEGES } from '../data/colleges';
 import { useApp } from '../context/AppContext';
+import type { ConnectionStatus } from '../data/types';
 
 type Tab = 'All' | 'People' | 'Clubs' | 'Events' | 'Colleges';
 const TABS: Tab[] = ['All', 'People', 'Clubs', 'Events', 'Colleges'];
-
-// ── Filter dropdown state ──────────────────────────────────────
 
 interface FilterState {
   interests: string;
@@ -19,20 +18,94 @@ interface FilterState {
   college: string;
 }
 
-const INTEREST_OPTIONS = ['AI', 'Design', 'Entrepreneurship', 'Sports', 'Music', 'Debate', 'Open Source', 'Data Science'];
-const SKILL_OPTIONS = ['Python', 'React', 'Figma', 'Flutter', 'Machine Learning', 'Node.js', 'TypeScript', 'SQL'];
-const LOCATION_OPTIONS = ['Mathura', 'Noida', 'New Delhi'];
-
-// ── Helpers ────────────────────────────────────────────────────
-
 function normalize(str: string): string {
   return str.trim().toLowerCase();
 }
 
+function uniqueSorted(values: string[]): string[] {
+  return [...new Set(values.map(v => v.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+}
+
+// Build filter options from the actual data so the dropdowns never drift
+// away from the interests, skills, locations, and colleges present in TRYBE.
+const INTEREST_OPTIONS = uniqueSorted(PEOPLE.flatMap(p => p.interests));
+const SKILL_OPTIONS = uniqueSorted([
+  ...PEOPLE.flatMap(p => p.skills),
+  ...CLUBS.flatMap(c => c.tags),
+]);
+const LOCATION_OPTIONS = uniqueSorted([
+  ...PEOPLE.map(p => p.location),
+  ...COLLEGES.map(c => c.city),
+]);
+const COLLEGE_OPTIONS = COLLEGES.map(c => c.name);
+
 function matchesQuery(fields: string[], query: string): boolean {
-  if (!query) return true;
+  if (!query.trim()) return true;
   const q = normalize(query);
   return fields.some(f => normalize(f).includes(q));
+}
+
+function matchesAny(values: string[], filter: string): boolean {
+  if (!filter) return true;
+  const f = normalize(filter);
+  return values.some(value => normalize(value).includes(f));
+}
+
+function getCollege(collegeId: string) {
+  return COLLEGES.find(c => c.id === collegeId);
+}
+
+function getEventClub(event: (typeof EVENTS)[number]) {
+  return event.clubId ? CLUBS.find(c => c.id === event.clubId) : undefined;
+}
+
+// ── Connection Button ──────────────────────────────────────────
+
+function ConnectionButton({ personId }: { personId: string }) {
+  const { connections, setConnectionStatus } = useApp();
+  const status: ConnectionStatus = connections[personId] || 'none';
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (status === 'none') {
+      setConnectionStatus(personId, 'pending');
+    } else if (status === 'pending') {
+      setConnectionStatus(personId, 'none');
+    } else {
+      setConnectionStatus(personId, 'none');
+    }
+  };
+
+  if (status === 'connected') {
+    return (
+      <button
+        onClick={handleClick}
+        className="w-full bg-surface-container-high border border-outline-variant text-on-surface font-label-md text-label-md py-sm rounded-lg hover:bg-error-container/30 hover:text-error hover:border-error/30 transition-colors text-center block mt-auto shadow-sm cursor-pointer"
+      >
+        Connected ✓
+      </button>
+    );
+  }
+
+  if (status === 'pending') {
+    return (
+      <button
+        onClick={handleClick}
+        className="w-full bg-primary-container/20 border border-primary/40 text-primary font-label-md text-label-md py-sm rounded-lg hover:bg-surface-container-high hover:text-on-surface transition-colors text-center block mt-auto shadow-sm cursor-pointer"
+      >
+        Pending (Cancel)
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      className="w-full bg-primary text-on-primary font-label-md text-label-md py-sm rounded-lg hover:opacity-90 transition-colors text-center block mt-auto shadow-sm cursor-pointer"
+    >
+      Connect
+    </button>
+  );
 }
 
 // ── Sub-views ──────────────────────────────────────────────────
@@ -42,7 +115,7 @@ function PeopleView({ people }: { people: typeof PEOPLE }) {
     return (
       <div className="text-center py-16 text-on-surface-variant">
         <span className="material-symbols-outlined text-4xl mb-4 block">person_off</span>
-        <p className="font-body-md">No people found matching your search.</p>
+        <p className="font-body-md">No people found matching your filters.</p>
       </div>
     );
   }
@@ -57,7 +130,7 @@ function PeopleView({ people }: { people: typeof PEOPLE }) {
       {people.map((person) => (
         <article
           key={person.id}
-          className="rounded-xl p-lg flex flex-col items-center text-center border border-outline-variant hover:border-primary/30 transition-all duration-300 bg-transparent"
+          className="rounded-xl p-lg flex flex-col items-center text-center border border-outline-variant hover:border-primary/30 transition-all duration-300 bg-surface/40 backdrop-blur-md"
         >
           <div className="relative mb-md">
             <img
@@ -71,20 +144,21 @@ function PeopleView({ people }: { people: typeof PEOPLE }) {
           </div>
           <h3 className="text-body-lg font-headline-md text-on-surface">{person.name}</h3>
           <p className="text-on-surface-variant font-label-sm text-label-sm mb-1">{person.role}</p>
-          <p className="text-on-surface-variant text-[12px] mb-md">{person.college}</p>
+          <p className="text-on-surface-variant text-[12px] mb-md flex items-center gap-xs">
+            <span className="material-symbols-outlined text-[14px]">school</span>
+            {person.college}
+          </p>
           <div className="flex flex-wrap justify-center gap-xs mb-lg">
             {person.skills.slice(0, 3).map((skill) => (
               <span
                 key={skill}
-                className="px-2 py-0.5 bg-transparent rounded text-[10px] text-on-surface-variant border border-outline-variant"
+                className="px-2 py-0.5 bg-surface-container-high rounded text-[10px] text-on-surface border border-outline-variant/40"
               >
                 {skill}
               </span>
             ))}
           </div>
-          <button className="w-full bg-primary text-on-primary font-label-md text-label-md py-sm rounded-lg hover:opacity-90 transition-colors text-center block mt-auto shadow-sm">
-            Connect
-          </button>
+          <ConnectionButton personId={person.id} />
         </article>
       ))}
     </motion.div>
@@ -92,6 +166,7 @@ function PeopleView({ people }: { people: typeof PEOPLE }) {
 }
 
 function ClubsView({ clubs }: { clubs: typeof CLUBS }) {
+  const navigate = useNavigate();
   const { joinedClubs, joinClub, leaveClub, getClubMemberCount } = useApp();
 
   if (clubs.length === 0) {
@@ -117,28 +192,34 @@ function ClubsView({ clubs }: { clubs: typeof CLUBS }) {
         return (
           <article
             key={club.id}
-            className="rounded-xl p-lg flex flex-col border border-outline-variant hover:border-primary/30 transition-all duration-300 bg-transparent"
+            onClick={() => navigate(`/clubs/${club.id}`)}
+            className="rounded-xl p-lg flex flex-col border border-outline-variant hover:border-primary/30 transition-all duration-300 bg-surface/40 backdrop-blur-md cursor-pointer group"
           >
             <div className="flex justify-between items-start mb-lg">
-              <div className="w-12 h-12 rounded-lg border border-outline-variant flex items-center justify-center text-primary bg-surface-container-low shrink-0">
+              <div className="w-12 h-12 rounded-lg border border-outline-variant flex items-center justify-center text-primary bg-surface-container-low shrink-0 group-hover:scale-105 transition-transform">
                 <span className="material-symbols-outlined">{club.icon}</span>
               </div>
               <span className="text-on-surface-variant font-label-sm text-[12px] whitespace-nowrap">
                 {memberCount.toLocaleString()} Members
               </span>
             </div>
-            <h3 className="text-body-lg font-headline-md text-on-surface mb-1">{club.title}</h3>
-            <p className="text-on-surface-variant text-[12px] mb-md">{club.college}</p>
+            <h3 className="text-body-lg font-headline-md text-on-surface mb-1 group-hover:text-primary transition-colors">{club.title}</h3>
+            <p className="text-on-surface-variant text-[12px] mb-md flex items-center gap-xs">
+              <span className="material-symbols-outlined text-[14px]">school</span>
+              {club.college}
+            </p>
             <p className="text-on-surface-variant text-body-sm font-body-sm mb-lg line-clamp-3">
               {club.description}
             </p>
             <button
-              onClick={() => (joined ? leaveClub(club.id) : joinClub(club.id))}
-              className={`w-full font-label-md text-label-md py-sm rounded-lg transition-colors text-center block mt-auto shadow-sm ${
-                joined
+              onClick={(e) => {
+                e.stopPropagation();
+                joined ? leaveClub(club.id) : joinClub(club.id);
+              }}
+              className={`w-full font-label-md text-label-md py-sm rounded-lg transition-colors text-center block mt-auto shadow-sm cursor-pointer ${joined
                   ? 'bg-surface-container-high border border-outline-variant text-on-surface hover:bg-error-container hover:text-on-error-container'
                   : 'bg-primary text-on-primary hover:opacity-90'
-              }`}
+                }`}
             >
               {joined ? 'Joined ✓' : 'Join Club'}
             </button>
@@ -196,11 +277,10 @@ function EventsView({ events }: { events: typeof EVENTS }) {
               onClick={() =>
                 rsvpdEvents.has(featured.id) ? cancelRsvp(featured.id) : rsvpEvent(featured.id)
               }
-              className={`font-label-md text-label-md px-xl py-sm rounded-lg transition-colors w-max shadow-sm ${
-                rsvpdEvents.has(featured.id)
+              className={`font-label-md text-label-md px-xl py-sm rounded-lg transition-colors w-max shadow-sm cursor-pointer ${rsvpdEvents.has(featured.id)
                   ? 'bg-surface-container-high border border-outline-variant text-on-surface'
                   : 'bg-primary text-on-primary hover:opacity-90'
-              }`}
+                }`}
             >
               {rsvpdEvents.has(featured.id) ? 'RSVP\'d ✓' : 'RSVP Now'}
             </button>
@@ -212,7 +292,7 @@ function EventsView({ events }: { events: typeof EVENTS }) {
         {rest.map(event => (
           <article
             key={event.id}
-            className="rounded-xl p-lg border border-outline-variant flex flex-col bg-transparent hover:border-primary/30 transition-colors"
+            className="rounded-xl p-lg border border-outline-variant flex flex-col bg-surface/40 backdrop-blur-md hover:border-primary/30 transition-colors"
           >
             <div className="flex justify-between items-start mb-md">
               <h3 className="text-body-lg font-headline-md text-on-surface flex-1 pr-4 leading-tight">
@@ -230,11 +310,10 @@ function EventsView({ events }: { events: typeof EVENTS }) {
                   ? removeInterested(event.id)
                   : markInterested(event.id)
               }
-              className={`w-full font-label-md text-label-md py-sm rounded-lg transition-colors ${
-                interestedEvents.has(event.id)
+              className={`w-full font-label-md text-label-md py-sm rounded-lg transition-colors cursor-pointer ${interestedEvents.has(event.id)
                   ? 'bg-primary-container text-on-primary-container border border-primary-container'
                   : 'bg-transparent border border-outline-variant text-on-surface hover:bg-surface-container'
-              }`}
+                }`}
             >
               {interestedEvents.has(event.id) ? 'Interested ✓' : 'Interested'}
             </button>
@@ -291,7 +370,7 @@ function CollegesView({ colleges }: { colleges: typeof COLLEGES }) {
             </p>
             <button
               onClick={() => navigate(`/college/${college.id}`)}
-              className="w-full bg-transparent border border-outline-variant text-on-surface font-label-md text-label-md py-sm rounded-lg hover:bg-surface-container-high transition-colors active:scale-95"
+              className="w-full bg-transparent border border-outline-variant text-on-surface font-label-md text-label-md py-sm rounded-lg hover:bg-surface-container-high transition-colors active:scale-95 cursor-pointer"
             >
               Explore
             </button>
@@ -308,7 +387,6 @@ export default function Discover() {
   const [activeTab, setActiveTab] = useState<Tab>('All');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Filter dropdown states
   const [filters, setFilters] = useState<FilterState>({
     interests: '',
     skills: '',
@@ -323,57 +401,129 @@ export default function Discover() {
     setOpenDropdown(null);
   };
 
-  // ── Filtered data ────────────────────────────────────────────
   const filteredPeople = useMemo(() => {
-    return PEOPLE.filter(p => {
-      const q = matchesQuery(
-        [p.name, p.role, p.college, ...p.skills, ...p.interests, p.location],
+    return PEOPLE.filter(person => {
+      const queryMatches = matchesQuery(
+        [
+          person.name,
+          person.role,
+          person.college,
+          person.location,
+          ...person.skills,
+          ...person.interests,
+        ],
         searchQuery
       );
-      const loc = !filters.location || normalize(p.location).includes(normalize(filters.location));
-      const skill = !filters.skills || p.skills.some(s => normalize(s).includes(normalize(filters.skills)));
-      const interest = !filters.interests || p.interests.some(i => normalize(i).includes(normalize(filters.interests)));
-      const college = !filters.college || normalize(p.college).includes(normalize(filters.college));
-      return q && loc && skill && interest && college;
+
+      return (
+        queryMatches &&
+        matchesAny(person.location ? [person.location] : [], filters.location) &&
+        matchesAny(person.skills, filters.skills) &&
+        matchesAny(person.interests, filters.interests) &&
+        matchesAny([person.college], filters.college)
+      );
     });
   }, [searchQuery, filters]);
 
   const filteredClubs = useMemo(() => {
-    return CLUBS.filter(c => {
-      const q = matchesQuery(
-        [c.title, c.description, c.category, c.college, ...c.tags],
+    return CLUBS.filter(club => {
+      const queryMatches = matchesQuery(
+        [club.title, club.description, club.category, club.college, ...club.tags],
         searchQuery
       );
-      const college = !filters.college || normalize(c.college).includes(normalize(filters.college));
-      const interest = !filters.interests || normalize(c.category).includes(normalize(filters.interests)) ||
-        c.tags.some(t => normalize(t).includes(normalize(filters.interests)));
-      return q && college && interest;
+
+      return (
+        queryMatches &&
+        matchesAny([club.college], filters.college) &&
+        matchesAny([club.category, ...club.tags, club.description], filters.interests) &&
+        matchesAny([club.category, ...club.tags, club.description], filters.skills) &&
+        // Clubs do not have a dedicated location field, so resolve their
+        // college -> city instead of trying to match the club title.
+        matchesAny(
+          [getCollege(club.collegeId)?.city ?? '', getCollege(club.collegeId)?.location ?? ''],
+          filters.location
+        )
+      );
     });
   }, [searchQuery, filters]);
 
   const filteredEvents = useMemo(() => {
-    return EVENTS.filter(e => {
-      const q = matchesQuery([e.title, e.description, e.location, e.hostName], searchQuery);
-      return q;
-    });
-  }, [searchQuery]);
+    return EVENTS.filter(event => {
+      const college = getCollege(event.collegeId);
+      const club = getEventClub(event);
+      const searchable = [
+        event.title,
+        event.description,
+        event.location,
+        event.hostName,
+        college?.name ?? '',
+        college?.city ?? '',
+        ...(club?.tags ?? []),
+        club?.category ?? '',
+        club?.description ?? '',
+      ];
 
-  const filteredColleges = useMemo(() => {
-    return COLLEGES.filter(c => {
-      const q = matchesQuery([c.name, c.location, c.city, c.state], searchQuery);
-      const loc = !filters.location || normalize(c.city).includes(normalize(filters.location));
-      return q && loc;
+      return (
+        matchesQuery(searchable, searchQuery) &&
+        matchesAny([event.location, college?.city ?? '', college?.location ?? ''], filters.location) &&
+        matchesAny([college?.name ?? ''], filters.college) &&
+        matchesAny(
+          [event.title, event.description, event.hostName, club?.category ?? '', ...(club?.tags ?? []), club?.description ?? ''],
+          filters.interests
+        ) &&
+        matchesAny(
+          [event.title, event.description, event.hostName, club?.category ?? '', ...(club?.tags ?? []), club?.description ?? ''],
+          filters.skills
+        )
+      );
     });
   }, [searchQuery, filters]);
 
-  const hasActiveFilters = Object.values(filters).some(v => v !== '');
+  const filteredColleges = useMemo(() => {
+    return COLLEGES.filter(college => {
+      const queryMatches = matchesQuery(
+        [college.name, college.location, college.city, college.state],
+        searchQuery
+      );
+
+      const relatedPeople = PEOPLE.filter(p => p.collegeId === college.id);
+      const relatedClubs = CLUBS.filter(c => c.collegeId === college.id);
+      const relatedEvents = EVENTS.filter(e => e.collegeId === college.id);
+
+      // College cards can participate in global interest/skill filtering by
+      // checking whether that college has matching people, clubs, or events.
+      const interestMatches = !filters.interests ||
+        relatedPeople.some(p => matchesAny(p.interests, filters.interests)) ||
+        relatedClubs.some(c => matchesAny([c.category, ...c.tags, c.description], filters.interests)) ||
+        relatedEvents.some(e => {
+          const club = getEventClub(e);
+          return matchesAny([e.title, e.description, e.hostName, club?.category ?? '', ...(club?.tags ?? [])], filters.interests);
+        });
+
+      const skillMatches = !filters.skills ||
+        relatedPeople.some(p => matchesAny(p.skills, filters.skills)) ||
+        relatedClubs.some(c => matchesAny([c.category, ...c.tags, c.description], filters.skills)) ||
+        relatedEvents.some(e => {
+          const club = getEventClub(e);
+          return matchesAny([e.title, e.description, e.hostName, club?.category ?? '', ...(club?.tags ?? [])], filters.skills);
+        });
+
+      return (
+        queryMatches &&
+        matchesAny([college.city, college.location], filters.location) &&
+        matchesAny([college.name], filters.college) &&
+        interestMatches &&
+        skillMatches
+      );
+    });
+  }, [searchQuery, filters]);
+
+  const hasActiveFilters = Object.values(filters).some(v => v !== '') || searchQuery !== '';
 
   const clearFilters = () => {
     setFilters({ interests: '', skills: '', location: '', college: '' });
     setSearchQuery('');
   };
-
-  // ── Render ──────────────────────────────────────────────────
 
   const renderContent = () => {
     switch (activeTab) {
@@ -397,8 +547,8 @@ export default function Discover() {
           return (
             <div className="text-center py-16 text-on-surface-variant">
               <span className="material-symbols-outlined text-4xl mb-4 block">search_off</span>
-              <p className="font-body-md">No results found for &ldquo;{searchQuery}&rdquo;</p>
-              <button onClick={clearFilters} className="mt-4 text-primary font-label-md hover:underline">
+              <p className="font-body-md">No results found for your query or filters.</p>
+              <button onClick={clearFilters} className="mt-4 text-primary font-label-md hover:underline cursor-pointer">
                 Clear search &amp; filters
               </button>
             </div>
@@ -449,16 +599,16 @@ export default function Discover() {
     <div className="flex-1 overflow-y-auto w-full" onClick={() => setOpenDropdown(null)}>
       <header className="sticky top-0 z-30 bg-background/90 backdrop-blur-md border-b border-outline-variant pt-lg pb-md px-margin-mobile md:px-margin-desktop">
         <div className="max-w-[1200px] mx-auto">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-md mb-lg">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-lg mb-lg">
             <h2 className="text-headline-lg font-headline-lg text-on-surface">Discover</h2>
-            <div className="relative w-full md:w-[480px] flex items-center gap-sm">
+            <div className="relative w-full lg:w-[420px] xl:w-[460px] flex items-center gap-sm">
               <div className="relative flex-1">
-                <span className="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-on-surface-variant">
+                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none">
                   search
                 </span>
                 <input
-                  className="w-full bg-surface-container-low border border-outline-variant rounded-full py-3 pl-xl pr-sm text-body-md text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-all"
-                  placeholder="Search people, clubs, events, colleges..."
+                  className="w-full h-11 bg-surface-container-low border border-outline-variant rounded-full py-2 pl-12 pr-10 text-body-md text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-all"
+                  placeholder="Search people, clubs, events..."
                   type="text"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
@@ -467,7 +617,7 @@ export default function Discover() {
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-sm top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-[18px]">close</span>
                   </button>
@@ -476,26 +626,25 @@ export default function Discover() {
               {hasActiveFilters && (
                 <button
                   onClick={clearFilters}
-                  className="w-12 h-12 rounded-full border border-primary bg-primary-container/20 flex items-center justify-center text-primary hover:bg-primary-container transition-colors shrink-0"
+                  className="w-11 h-11 rounded-full border border-primary bg-primary-container/20 flex items-center justify-center text-primary hover:bg-primary-container transition-colors shrink-0 cursor-pointer"
                   title="Clear all filters"
                 >
-                  <span className="material-symbols-outlined">filter_alt_off</span>
+                  <span className="material-symbols-outlined text-[18px]">filter_alt_off</span>
                 </button>
               )}
             </div>
           </div>
 
           {/* Tabs */}
-          <div className="flex items-center gap-md overflow-x-auto pb-2 scrollbar-hide">
+          <div className="flex flex-wrap items-center gap-md pb-2 overflow-visible">
             {TABS.map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-md py-xs rounded-full font-label-sm text-label-sm whitespace-nowrap transition-colors border ${
-                  activeTab === tab
+                className={`px-md py-xs rounded-full font-label-sm text-label-sm whitespace-nowrap transition-colors border cursor-pointer ${activeTab === tab
                     ? 'bg-primary-container text-on-primary-container border-primary-container'
                     : 'bg-transparent border-outline-variant text-on-surface-variant hover:bg-surface-container'
-                }`}
+                  }`}
               >
                 {tab}
               </button>
@@ -507,24 +656,22 @@ export default function Discover() {
             <div className="relative" onClick={e => e.stopPropagation()}>
               <button
                 onClick={() => setOpenDropdown(openDropdown === 'interests' ? null : 'interests')}
-                className={`flex items-center gap-xs px-md py-xs rounded-full border font-label-sm text-label-sm whitespace-nowrap transition-colors ${
-                  filters.interests
+                className={`flex items-center gap-xs px-md py-xs rounded-full border font-label-sm text-label-sm whitespace-nowrap transition-colors cursor-pointer ${filters.interests
                     ? 'bg-primary-container text-on-primary-container border-primary-container'
                     : 'bg-transparent border-outline-variant text-on-surface-variant hover:bg-surface-container'
-                }`}
+                  }`}
               >
                 {filters.interests || 'Interests'}
                 <span className="material-symbols-outlined text-[16px]">expand_more</span>
               </button>
               {openDropdown === 'interests' && (
-                <div className="absolute top-full mt-xs left-0 bg-surface border border-outline-variant rounded-xl shadow-lg z-50 min-w-[160px] overflow-hidden">
+                <div className="absolute top-full mt-xs left-0 bg-surface border border-outline-variant rounded-xl shadow-xl z-[100] min-w-[180px] max-h-72 overflow-y-auto">
                   {INTEREST_OPTIONS.map(opt => (
                     <button
                       key={opt}
                       onClick={() => setFilter('interests', opt)}
-                      className={`w-full text-left px-md py-sm font-label-sm text-label-sm hover:bg-surface-container-high transition-colors ${
-                        filters.interests === opt ? 'text-primary bg-primary-container/20' : 'text-on-surface'
-                      }`}
+                      className={`w-full text-left px-md py-sm font-label-sm text-label-sm hover:bg-surface-container-high transition-colors cursor-pointer ${filters.interests === opt ? 'text-primary bg-primary-container/20' : 'text-on-surface'
+                        }`}
                     >
                       {opt}
                     </button>
@@ -537,24 +684,22 @@ export default function Discover() {
             <div className="relative" onClick={e => e.stopPropagation()}>
               <button
                 onClick={() => setOpenDropdown(openDropdown === 'skills' ? null : 'skills')}
-                className={`flex items-center gap-xs px-md py-xs rounded-full border font-label-sm text-label-sm whitespace-nowrap transition-colors ${
-                  filters.skills
+                className={`flex items-center gap-xs px-md py-xs rounded-full border font-label-sm text-label-sm whitespace-nowrap transition-colors cursor-pointer ${filters.skills
                     ? 'bg-primary-container text-on-primary-container border-primary-container'
                     : 'bg-transparent border-outline-variant text-on-surface-variant hover:bg-surface-container'
-                }`}
+                  }`}
               >
                 {filters.skills || 'Skills'}
                 <span className="material-symbols-outlined text-[16px]">expand_more</span>
               </button>
               {openDropdown === 'skills' && (
-                <div className="absolute top-full mt-xs left-0 bg-surface border border-outline-variant rounded-xl shadow-lg z-50 min-w-[160px] overflow-hidden">
+                <div className="absolute top-full mt-xs left-0 bg-surface border border-outline-variant rounded-xl shadow-xl z-[100] min-w-[180px] max-h-72 overflow-y-auto">
                   {SKILL_OPTIONS.map(opt => (
                     <button
                       key={opt}
                       onClick={() => setFilter('skills', opt)}
-                      className={`w-full text-left px-md py-sm font-label-sm text-label-sm hover:bg-surface-container-high transition-colors ${
-                        filters.skills === opt ? 'text-primary bg-primary-container/20' : 'text-on-surface'
-                      }`}
+                      className={`w-full text-left px-md py-sm font-label-sm text-label-sm hover:bg-surface-container-high transition-colors cursor-pointer ${filters.skills === opt ? 'text-primary bg-primary-container/20' : 'text-on-surface'
+                        }`}
                     >
                       {opt}
                     </button>
@@ -567,24 +712,50 @@ export default function Discover() {
             <div className="relative" onClick={e => e.stopPropagation()}>
               <button
                 onClick={() => setOpenDropdown(openDropdown === 'location' ? null : 'location')}
-                className={`flex items-center gap-xs px-md py-xs rounded-full border font-label-sm text-label-sm whitespace-nowrap transition-colors ${
-                  filters.location
+                className={`flex items-center gap-xs px-md py-xs rounded-full border font-label-sm text-label-sm whitespace-nowrap transition-colors cursor-pointer ${filters.location
                     ? 'bg-primary-container text-on-primary-container border-primary-container'
                     : 'bg-transparent border-outline-variant text-on-surface-variant hover:bg-surface-container'
-                }`}
+                  }`}
               >
                 {filters.location || 'Location'}
                 <span className="material-symbols-outlined text-[16px]">expand_more</span>
               </button>
               {openDropdown === 'location' && (
-                <div className="absolute top-full mt-xs left-0 bg-surface border border-outline-variant rounded-xl shadow-lg z-50 min-w-[160px] overflow-hidden">
+                <div className="absolute top-full mt-xs left-0 bg-surface border border-outline-variant rounded-xl shadow-xl z-[100] min-w-[180px] max-h-72 overflow-y-auto">
                   {LOCATION_OPTIONS.map(opt => (
                     <button
                       key={opt}
                       onClick={() => setFilter('location', opt)}
-                      className={`w-full text-left px-md py-sm font-label-sm text-label-sm hover:bg-surface-container-high transition-colors ${
-                        filters.location === opt ? 'text-primary bg-primary-container/20' : 'text-on-surface'
-                      }`}
+                      className={`w-full text-left px-md py-sm font-label-sm text-label-sm hover:bg-surface-container-high transition-colors cursor-pointer ${filters.location === opt ? 'text-primary bg-primary-container/20' : 'text-on-surface'
+                        }`}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* College filter */}
+            <div className="relative" onClick={e => e.stopPropagation()}>
+              <button
+                onClick={() => setOpenDropdown(openDropdown === 'college' ? null : 'college')}
+                className={`flex items-center gap-xs px-md py-xs rounded-full border font-label-sm text-label-sm whitespace-nowrap transition-colors cursor-pointer ${filters.college
+                    ? 'bg-primary-container text-on-primary-container border-primary-container'
+                    : 'bg-transparent border-outline-variant text-on-surface-variant hover:bg-surface-container'
+                  }`}
+              >
+                {filters.college || 'College'}
+                <span className="material-symbols-outlined text-[16px]">expand_more</span>
+              </button>
+              {openDropdown === 'college' && (
+                <div className="absolute top-full mt-xs left-0 bg-surface border border-outline-variant rounded-xl shadow-xl z-[100] min-w-[200px] max-h-72 overflow-y-auto">
+                  {COLLEGE_OPTIONS.map(opt => (
+                    <button
+                      key={opt}
+                      onClick={() => setFilter('college', opt)}
+                      className={`w-full text-left px-md py-sm font-label-sm text-label-sm hover:bg-surface-container-high transition-colors cursor-pointer ${filters.college === opt ? 'text-primary bg-primary-container/20' : 'text-on-surface'
+                        }`}
                     >
                       {opt}
                     </button>
@@ -606,7 +777,7 @@ export default function Discover() {
                     {key}: {value}
                     <button
                       onClick={() => setFilter(key as keyof FilterState, value as string)}
-                      className="hover:text-error"
+                      className="hover:text-error cursor-pointer"
                     >
                       <span className="material-symbols-outlined text-[14px]">close</span>
                     </button>

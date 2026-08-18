@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 @theme {
+  /* ── Colors ── */
   --color-secondary-container: #842836;
   --color-on-secondary-container: #ff9da5;
   --color-error-container: #93000a;
@@ -49,15 +50,33 @@
   --color-inverse-primary: #8b4c53;
   --color-on-primary-fixed: #390a13;
 
+  /* ── Dedicated Layout Tokens ── */
   --spacing-margin-mobile: 20px;
   --spacing-margin-desktop: 40px;
-  --spacing-xs: 8px;
-  --spacing-sm: 12px;
-  --spacing-md: 16px;
-  --spacing-lg: 24px;
-  --spacing-xl: 32px;
-  --spacing-base: 4px;
   --spacing-gutter: 16px;
+
+  /* ── Typography ── */
+  --font-size-headline-xl: 2.5rem;
+  --font-size-headline-lg: 2rem;
+  --font-size-headline-md: 1.5rem;
+  --font-size-headline-sm: 1.25rem;
+  --font-size-label-lg: 1rem;
+  --font-size-label-md: 0.875rem;
+  --font-size-label-sm: 0.75rem;
+  --font-size-body-lg: 1.125rem;
+  --font-size-body-md: 1rem;
+  --font-size-body-sm: 0.875rem;
+
+  --font-family-headline-xl: 'Inter', sans-serif;
+  --font-family-headline-lg: 'Inter', sans-serif;
+  --font-family-headline-md: 'Inter', sans-serif;
+  --font-family-headline-sm: 'Inter', sans-serif;
+  --font-family-label-lg: 'Inter', sans-serif;
+  --font-family-label-md: 'Inter', sans-serif;
+  --font-family-label-sm: 'Inter', sans-serif;
+  --font-family-body-lg: 'Inter', sans-serif;
+  --font-family-body-md: 'Inter', sans-serif;
+  --font-family-body-sm: 'Inter', sans-serif;
 }
 
 @layer base {
@@ -67,6 +86,73 @@
     font-family: 'Inter', sans-serif;
   }
 }
+
+/* ── Custom Named Spacing Utilities (xs: 8px, sm: 12px, md: 16px, lg: 24px, xl: 32px) ── */
+@utility p-xs { padding: 8px; }
+@utility px-xs { padding-left: 8px; padding-right: 8px; }
+@utility py-xs { padding-top: 8px; padding-bottom: 8px; }
+@utility m-xs { margin: 8px; }
+@utility mx-xs { margin-left: 8px; margin-right: 8px; }
+@utility my-xs { margin-top: 8px; margin-bottom: 8px; }
+@utility mt-xs { margin-top: 8px; }
+@utility mb-xs { margin-bottom: 8px; }
+@utility ml-xs { margin-left: 8px; }
+@utility mr-xs { margin-right: 8px; }
+@utility gap-xs { gap: 8px; }
+
+@utility p-sm { padding: 12px; }
+@utility px-sm { padding-left: 12px; padding-right: 12px; }
+@utility py-sm { padding-top: 12px; padding-bottom: 12px; }
+@utility m-sm { margin: 12px; }
+@utility mx-sm { margin-left: 12px; margin-right: 12px; }
+@utility my-sm { margin-top: 12px; margin-bottom: 12px; }
+@utility mt-sm { margin-top: 12px; }
+@utility mb-sm { margin-bottom: 12px; }
+@utility ml-sm { margin-left: 12px; }
+@utility mr-sm { margin-right: 12px; }
+@utility gap-sm { gap: 12px; }
+
+@utility p-md { padding: 16px; }
+@utility px-md { padding-left: 16px; padding-right: 16px; }
+@utility py-md { padding-top: 16px; padding-bottom: 16px; }
+@utility m-md { margin: 16px; }
+@utility mx-md { margin-left: 16px; margin-right: 16px; }
+@utility my-md { margin-top: 16px; margin-bottom: 16px; }
+@utility mt-md { margin-top: 16px; }
+@utility mb-md { margin-bottom: 16px; }
+@utility ml-md { margin-left: 16px; }
+@utility mr-md { margin-right: 16px; }
+@utility gap-md { gap: 16px; }
+
+@utility p-lg { padding: 24px; }
+@utility px-lg { padding-left: 24px; padding-right: 24px; }
+@utility py-lg { padding-top: 24px; padding-bottom: 24px; }
+@utility m-lg { margin: 24px; }
+@utility mx-lg { margin-left: 24px; margin-right: 24px; }
+@utility my-lg { margin-top: 24px; margin-bottom: 24px; }
+@utility mt-lg { margin-top: 24px; }
+@utility mb-lg { margin-bottom: 24px; }
+@utility ml-lg { margin-left: 24px; }
+@utility mr-lg { margin-right: 24px; }
+@utility gap-lg { gap: 24px; }
+
+@utility p-xl { padding: 32px; }
+@utility px-xl { padding-left: 32px; padding-right: 32px; }
+@utility py-xl { padding-top: 32px; padding-bottom: 32px; }
+@utility m-xl { margin: 32px; }
+@utility mx-xl { margin-left: 32px; margin-right: 32px; }
+@utility my-xl { margin-top: 32px; margin-bottom: 32px; }
+@utility mt-xl { margin-top: 32px; }
+@utility mb-xl { margin-bottom: 32px; }
+@utility ml-xl { margin-left: 32px; }
+@utility mr-xl { margin-right: 32px; }
+@utility gap-xl { gap: 32px; }
+
+/* ── Modal Sizing Tokens and Custom Modal Utilities ── */
+@utility max-w-modal-sm { max-width: 440px; }
+@utility max-w-modal-md { max-width: 540px; }
+@utility max-w-modal-lg { max-width: 720px; }
+@utility max-w-modal-xl { max-width: 900px; }
 
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
@@ -103,13 +189,4 @@ input[type="password"]::-ms-reveal,
 input[type="password"]::-ms-clear,
 input[type="password"]::-webkit-credentials-auto-fill-button {
   display: none !important;
-}
-
-/* Hide scrollbar for horizontal scrolling containers */
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
 }

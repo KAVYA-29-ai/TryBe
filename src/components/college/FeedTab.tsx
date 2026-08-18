@@ -52,7 +52,7 @@ function timeAgo(iso: string): string {
 }
 
 export function FeedTab() {
-  const { collegePosts, addCollegePost, likePost, unlikePost, likedPosts, addComment, comments } =
+  const { collegePosts, addCollegePost, likePost, unlikePost, likedPosts, addComment, comments, userProfile, showToast } =
     useApp();
 
   const userPosts = collegePosts[COLLEGE_ID] ?? [];
@@ -78,10 +78,10 @@ export function FeedTab() {
 
     const newPost: Post = {
       id: `post-${Date.now()}`,
-      authorId: 'current-user',
-      authorName: 'Alex (You)',
-      authorAvatar: CURRENT_USER_AVATAR,
-      authorMajor: 'CS & Engineering',
+      authorId: userProfile.username,
+      authorName: userProfile.name,
+      authorAvatar: userProfile.avatar,
+      authorMajor: userProfile.college,
       collegeId: COLLEGE_ID,
       content: postText.trim(),
       tag: postTag,
@@ -157,8 +157,13 @@ export function FeedTab() {
             placeholder="Share campus news or updates..."
             rows={2}
           />
-          <button className="p-sm text-on-surface-variant hover:text-primary transition-colors" type="button">
-            <span className="material-symbols-outlined">image</span>
+          <button
+            onClick={() => showToast('Image upload feature coming soon! You can post text updates.', 'info')}
+            className="p-sm text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
+            type="button"
+            aria-label="Add image"
+          >
+            <span className="material-symbols-outlined" aria-hidden="true">image</span>
           </button>
         </div>
 
@@ -183,11 +188,11 @@ export function FeedTab() {
           <button
             type="submit"
             disabled={isSubmitting || !postText.trim()}
-            className="bg-primary text-on-primary px-lg py-xs rounded-full font-label-md hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-xs"
+            className="bg-primary text-on-primary px-lg py-xs rounded-full font-label-md hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-xs cursor-pointer"
           >
             {isSubmitting ? (
               <>
-                <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                <span className="material-symbols-outlined text-[16px] animate-spin" aria-hidden="true">progress_activity</span>
                 Posting...
               </>
             ) : (
@@ -202,8 +207,7 @@ export function FeedTab() {
         const isLiked = likedPosts.has(post.id) || post.liked;
         const postComments = comments[post.id] ?? [];
         const showComments = expandedComments.has(post.id);
-        // For seed posts: use seed like count; for user posts: use live count
-        const likeCount = post.id.startsWith('seed-') ? post.likes : post.likes;
+        const likeCount = post.likes;
 
         return (
           <article
@@ -220,7 +224,7 @@ export function FeedTab() {
                   />
                 ) : (
                   <div className="w-10 h-10 rounded-lg bg-surface-container-high border border-outline-variant flex items-center justify-center shrink-0">
-                    <span className="material-symbols-outlined text-on-surface">campaign</span>
+                    <span className="material-symbols-outlined text-on-surface" aria-hidden="true">campaign</span>
                   </div>
                 )}
                 <div>
@@ -243,13 +247,14 @@ export function FeedTab() {
               <div className="flex items-center gap-lg">
                 <button
                   onClick={() => handleLike(post)}
-                  className={`flex items-center gap-base transition-colors group ${
+                  className={`flex items-center gap-base transition-colors group cursor-pointer ${
                     isLiked ? 'text-primary' : 'text-on-surface-variant hover:text-primary'
                   }`}
                 >
                   <span
                     className="material-symbols-outlined group-hover:scale-110 transition-transform"
                     style={{ fontVariationSettings: isLiked ? '"FILL" 1' : '"FILL" 0' }}
+                    aria-hidden="true"
                   >
                     favorite
                   </span>
@@ -257,16 +262,25 @@ export function FeedTab() {
                 </button>
                 <button
                   onClick={() => toggleComments(post.id)}
-                  className="flex items-center gap-base text-on-surface-variant hover:text-on-surface transition-colors group"
+                  className="flex items-center gap-base text-on-surface-variant hover:text-on-surface transition-colors group cursor-pointer"
                 >
-                  <span className="material-symbols-outlined group-hover:scale-110 transition-transform">comment</span>
+                  <span className="material-symbols-outlined group-hover:scale-110 transition-transform" aria-hidden="true">comment</span>
                   <span className="font-label-md text-label-md">
                     {post.commentsCount + postComments.length}
                   </span>
                 </button>
               </div>
-              <button className="text-on-surface-variant hover:text-on-surface transition-colors">
-                <span className="material-symbols-outlined">share</span>
+              <button
+                onClick={() => {
+                  try {
+                    navigator.clipboard.writeText(`${window.location.origin}/college#post-${post.id}`);
+                  } catch {}
+                  showToast('Post link copied to clipboard!');
+                }}
+                className="text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+                aria-label="Share post"
+              >
+                <span className="material-symbols-outlined" aria-hidden="true">share</span>
               </button>
             </div>
 
