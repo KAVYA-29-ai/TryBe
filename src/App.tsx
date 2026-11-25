@@ -8,35 +8,52 @@ import {
 
 import Layout from './components/Layout';
 
+// Public pages
 import Welcome from './pages/Welcome';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Onboarding from './pages/Onboarding';
 
+// Main pages
 import HomeFeed from './pages/HomeFeed';
 import Discover from './pages/Discover';
 import MyCollege from './pages/MyCollege';
 import CollegeExplore from './pages/CollegeExplore';
 
+// Clubs / Work
 import Clubs from './pages/Clubs';
 import ClubDashboard from './pages/ClubDashboard';
 import Work from './pages/Work';
 
+// Communication
 import Messages from './pages/Messages';
 import Notifications from './pages/Notifications';
 
+// User
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import Help from './pages/Help';
 
+// Legal / Support
 import LegalPage from './pages/LegalPage';
 import Contact from './pages/Contact';
 
 import { AppProvider, useApp } from './context/AppContext';
+import { CareerProvider } from './context/CareerContext';
+import { CareerModalsProvider } from './components/career/CareerModals';
 
-// ─────────────────────────────────────────────
-// Protected Layout
-// ─────────────────────────────────────────────
+// Career intelligence layer
+import CareerCopilot from './pages/career/CareerCopilot';
+import CareerReadiness from './pages/career/CareerReadiness';
+import CareerRoadmap from './pages/career/CareerRoadmap';
+import Opportunities from './pages/career/Opportunities';
+import MentorDashboard from './pages/career/MentorDashboard';
+import InterviewStudio from './pages/career/InterviewStudio';
+
+
+// ============================================================
+// PROTECTED LAYOUT
+// ============================================================
 
 function ProtectedLayout() {
   const { isAuthenticated } = useApp();
@@ -48,9 +65,10 @@ function ProtectedLayout() {
   return <Layout />;
 }
 
-// ─────────────────────────────────────────────
-// Public Auth Routes
-// ─────────────────────────────────────────────
+
+// ============================================================
+// PUBLIC AUTH ROUTE
+// ============================================================
 
 function PublicAuthRoute({
   children,
@@ -66,19 +84,22 @@ function PublicAuthRoute({
   return children;
 }
 
-// ─────────────────────────────────────────────
-// App
-// ─────────────────────────────────────────────
+
+// ============================================================
+// APP
+// ============================================================
 
 export default function App() {
   return (
     <AppProvider>
+      <CareerProvider>
+      <CareerModalsProvider>
       <Router>
         <Routes>
 
-          {/* ═══════════════════════════════════════
+          {/* ==================================================
               PUBLIC ROUTES
-          ═══════════════════════════════════════ */}
+          ================================================== */}
 
           <Route
             path="/"
@@ -108,7 +129,10 @@ export default function App() {
             element={<Onboarding />}
           />
 
-          {/* Legal / Support */}
+
+          {/* ==================================================
+              LEGAL / SUPPORT
+          ================================================== */}
 
           <Route
             path="/privacy"
@@ -130,9 +154,10 @@ export default function App() {
             element={<Contact />}
           />
 
-          {/* ═══════════════════════════════════════
-              AUTHENTICATED APPLICATION
-          ═══════════════════════════════════════ */}
+
+          {/* ==================================================
+              PROTECTED APPLICATION
+          ================================================== */}
 
           <Route element={<ProtectedLayout />}>
 
@@ -142,18 +167,19 @@ export default function App() {
               element={<HomeFeed />}
             />
 
-            {/* Discovery */}
+            {/* Discover */}
             <Route
               path="/discover"
               element={<Discover />}
             />
 
-            {/* College */}
+            {/* My College */}
             <Route
               path="/college"
               element={<MyCollege />}
             />
 
+            {/* College Explore */}
             <Route
               path="/college/:collegeId"
               element={<CollegeExplore />}
@@ -176,33 +202,76 @@ export default function App() {
               element={<Work />}
             />
 
-            {/* ═══════════════════════════════════
-                COMMUNICATION
-            ═══════════════════════════════════ */}
+
+            {/* ==================================================
+                CAREER INTELLIGENCE
+            ================================================== */}
+
+            <Route
+              path="/career"
+              element={<CareerCopilot />}
+            />
+
+            <Route
+              path="/career/readiness"
+              element={<CareerReadiness />}
+            />
+
+            <Route
+              path="/career/roadmap"
+              element={<CareerRoadmap />}
+            />
+
+            <Route
+              path="/career/opportunities"
+              element={<Opportunities />}
+            />
+
+            <Route
+              path="/career/interview"
+              element={<InterviewStudio />}
+            />
+
+            <Route
+              path="/career/mentor"
+              element={<MentorDashboard />}
+            />
+
+
+            {/* ==================================================
+                MESSAGES / CHAT
+            ================================================== */}
 
             <Route
               path="/messages"
               element={<Messages />}
             />
 
+
+            {/* ==================================================
+                NOTIFICATIONS
+            ================================================== */}
+
             <Route
               path="/notifications"
               element={<Notifications />}
             />
 
-            {/* Profile */}
+
+            {/* ==================================================
+                USER
+            ================================================== */}
+
             <Route
               path="/profile"
               element={<Profile />}
             />
 
-            {/* Settings */}
             <Route
               path="/settings"
               element={<Settings />}
             />
 
-            {/* Help */}
             <Route
               path="/help"
               element={<Help />}
@@ -210,9 +279,10 @@ export default function App() {
 
           </Route>
 
-          {/* ═══════════════════════════════════════
+
+          {/* ==================================================
               FALLBACK
-          ═══════════════════════════════════════ */}
+          ================================================== */}
 
           <Route
             path="*"
@@ -221,6 +291,8 @@ export default function App() {
 
         </Routes>
       </Router>
+      </CareerModalsProvider>
+      </CareerProvider>
     </AppProvider>
   );
 }

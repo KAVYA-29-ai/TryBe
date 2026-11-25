@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { PEOPLE } from '../data/people';
+import { supabase } from '../lib/supabase';
 
 type Message = {
     id: string;
@@ -10,62 +10,48 @@ type Message = {
     time: string;
 };
 
-type Conversation = {
-    personId: string;
-    lastMessage: string;
-    time: string;
-    unread: number;
+type ChatUser = {
+    id: string;
+    name: string;
+    username: string;
+    role: string;
+    image: string;
+    online: boolean;
 };
 
-const INITIAL_CONVERSATIONS: Conversation[] = [
-    {
-        personId: PEOPLE[0]?.id ?? 'sarah-chen',
-        lastMessage: 'Hey! Saw your project. Looks really interesting.',
-        time: '2m',
-        unread: 2,
-    },
-    {
-        personId: PEOPLE[1]?.id ?? 'priya-sharma',
-        lastMessage: 'Would love to discuss the design system.',
-        time: '18m',
-        unread: 1,
-    },
-];
+const INITIAL_CONVERSATIONS: { personId: string; lastMessage: string; unread: number }[] = [];
 
-const INITIAL_MESSAGES: Record<string, Message[]> = {
-    [PEOPLE[0]?.id ?? 'sarah-chen']: [
-        {
-            id: '1',
-            sender: 'them',
-            text: 'Hey! Saw your project. Looks really interesting.',
-            time: '2:31 PM',
-        },
-        {
-            id: '2',
-            sender: 'me',
-            text: 'Thanks! I am working on the next version right now.',
-            time: '2:33 PM',
-        },
-    ],
-
-    [PEOPLE[1]?.id ?? 'priya-sharma']: [
-        {
-            id: '3',
-            sender: 'them',
-            text: 'Would love to discuss the design system.',
-            time: '1:48 PM',
-        },
-    ],
-};
+const INITIAL_MESSAGES: Record<string, Message[]> = {};
 
 export default function Messages() {
     const { userProfile } = useApp();
 
-    const people = PEOPLE.slice(0, 6);
+    // Load real users from Supabase; fall back to empty list when no Supabase connection
+    const [chatUsers, setChatUsers] = useState<ChatUser[]>([]);
 
-    const [selectedId, setSelectedId] = useState(
-        people[0]?.id ?? ''
-    );
+    useEffect(() => {
+        supabase
+            .from('profiles')
+            .select('id, display_name, username, bio, avatar_url')
+            .neq('username', userProfile.username || '__none__')
+            .limit(30)
+            .then(({ data }) => {
+                if (data && data.length > 0) {
+                    setChatUsers(data.map(p => ({
+                        id: p.id as string,
+                        name: (p.display_name as string) || (p.username as string) || 'Student',
+                        username: (p.username as string) || '',
+                        role: (p.bio as string) || 'Student at TRYBE',
+                        image: (p.avatar_url as string) || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256',
+                        online: false,
+                    })));
+                }
+            }, () => { /* Supabase offline — stay empty */ });
+    }, [userProfile.username]);
+
+    const people = chatUsers;
+
+    const [selectedId, setSelectedId] = useState('');
 
     const [search, setSearch] = useState('');
     const [messageText, setMessageText] = useState('');
@@ -182,13 +168,14 @@ export default function Messages() {
 
                         <div className="flex-1 overflow-y-auto">
 
-                            {conversations.map((person) => {
+                            {conversations.length === 0 ? (
+                                <div className="p-lg text-center text-on-surface-variant">
+                                    <span className="material-symbols-outlined text-4xl mb-sm block opacity-40">group</span>
+                                    <p className="text-sm">No contacts yet.<br/>Connect with people in <strong>Discover</strong> to start chatting.</p>
+                                </div>
+                            ) : conversations.map((person) => {
 
-                                const unread =
-                                    INITIAL_CONVERSATIONS.find(
-                                        (conversation) =>
-                                            conversation.personId === person.id
-                                    )?.unread ?? 0;
+                                const unread = 0;
 
                                 const isSelected =
                                     selectedId === person.id;
@@ -235,10 +222,7 @@ export default function Messages() {
                                             </div>
 
                                             <p className="text-[12px] text-on-surface-variant truncate mt-xs">
-                                                {INITIAL_CONVERSATIONS.find(
-                                                    (conversation) =>
-                                                        conversation.personId === person.id
-                                                )?.lastMessage ?? 'Start a conversation'}
+                                                {messages[person.id]?.at(-1)?.text ?? 'Start a conversation'}
                                             </p>
 
                                         </div>

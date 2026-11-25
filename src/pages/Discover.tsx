@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { PEOPLE } from '../data/people';
@@ -6,7 +6,9 @@ import { CLUBS } from '../data/clubs';
 import { EVENTS } from '../data/events';
 import { COLLEGES } from '../data/colleges';
 import { useApp } from '../context/AppContext';
+import { supabase } from '../lib/supabase';
 import type { ConnectionStatus } from '../data/types';
+import type { Person } from '../data/types';
 
 type Tab = 'All' | 'People' | 'Clubs' | 'Events' | 'Colleges';
 const TABS: Tab[] = ['All', 'People', 'Clubs', 'Events', 'Colleges'];
@@ -401,8 +403,41 @@ export default function Discover() {
     setOpenDropdown(null);
   };
 
+  // Fetch real users from Supabase and merge with static PEOPLE seed data
+  const [realUsers, setRealUsers] = useState<Person[]>([]);
+  useEffect(() => {
+    supabase
+      .from('profiles')
+      .select('id, display_name, username, bio, avatar_url')
+      .limit(50)
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          const mapped: Person[] = data.map(p => ({
+            id: p.id as string,
+            name: (p.display_name as string) || (p.username as string) || 'Student',
+            role: (p.bio as string) || 'Student',
+            college: 'GLA University',
+            collegeId: 'gla-university',
+            image: (p.avatar_url as string) || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256',
+            skills: [],
+            interests: [],
+            location: '',
+            online: false,
+          }));
+          setRealUsers(mapped);
+        }
+      }, () => { /* Supabase offline — use static PEOPLE */ });
+  }, []);
+
+  // Merge: real users first, then static seed people (deduped by id)
+  const allPeople = useMemo(() => {
+    const realIds = new Set(realUsers.map(u => u.id));
+    const staticFallback = PEOPLE.filter(p => !realIds.has(p.id));
+    return [...realUsers, ...staticFallback];
+  }, [realUsers]);
+
   const filteredPeople = useMemo(() => {
-    return PEOPLE.filter(person => {
+    return allPeople.filter(person => {
       const queryMatches = matchesQuery(
         [
           person.name,
@@ -423,7 +458,7 @@ export default function Discover() {
         matchesAny([person.college], filters.college)
       );
     });
-  }, [searchQuery, filters]);
+  }, [searchQuery, filters, allPeople]);
 
   const filteredClubs = useMemo(() => {
     return CLUBS.filter(club => {
@@ -445,7 +480,7 @@ export default function Discover() {
         )
       );
     });
-  }, [searchQuery, filters]);
+  }, [searchQuery, filters, allPeople]);
 
   const filteredEvents = useMemo(() => {
     return EVENTS.filter(event => {
@@ -477,7 +512,7 @@ export default function Discover() {
         )
       );
     });
-  }, [searchQuery, filters]);
+  }, [searchQuery, filters, allPeople]);
 
   const filteredColleges = useMemo(() => {
     return COLLEGES.filter(college => {
@@ -516,7 +551,7 @@ export default function Discover() {
         skillMatches
       );
     });
-  }, [searchQuery, filters]);
+  }, [searchQuery, filters, allPeople]);
 
   const hasActiveFilters = Object.values(filters).some(v => v !== '') || searchQuery !== '';
 

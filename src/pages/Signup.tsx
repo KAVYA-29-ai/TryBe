@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useApp } from '../context/AppContext';
+import { supabase } from '../lib/supabase';
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -15,7 +16,7 @@ export default function Signup() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
       setError('Please enter your full name.');
@@ -35,6 +36,22 @@ export default function Signup() {
     }
 
     setError('');
+
+    // Attempt Supabase signup if available
+    try {
+      await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          data: {
+            full_name: name.trim(),
+          },
+        },
+      });
+    } catch {
+      // Local fallback
+    }
+
     signup(name, email);
     navigate('/onboarding');
   };
